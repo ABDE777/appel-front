@@ -303,6 +303,47 @@
   }
   .mystats-grid .mini.full { grid-column: span 2; }
 
+  /* Agent Navigation Tabs */
+  .agent-nav-bar {
+    display: flex; gap: 8px; margin-bottom: 20px;
+    border-bottom: 1px solid var(--line); padding-bottom: 12px;
+  }
+  .agent-nav-tab {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 20px;
+    border: 1px solid var(--line-strong); background: var(--panel-2);
+    color: var(--text-secondary); font-size: 13.5px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s var(--ease);
+  }
+  .agent-nav-tab:hover { background: var(--panel); border-color: var(--gold); color: var(--paper); }
+  .agent-nav-tab.active {
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF; border-color: transparent; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.25);
+  }
+  .tab-badge-num {
+    background: rgba(255, 255, 255, 0.3); color: inherit; font-size: 11px; font-weight: 800;
+    padding: 2px 7px; border-radius: 10px; font-family: var(--mono);
+  }
+  .agent-nav-tab:not(.active) .tab-badge-num {
+    background: var(--line-strong); color: var(--paper);
+  }
+
+  /* Modal Overlay */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: screenIn 0.2s var(--ease);
+  }
+  .modal-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    padding: 28px; box-shadow: var(--shadow-lg);
+  }
+  .btn-close-modal {
+    background: none; border: none; font-size: 18px; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 4px;
+  }
+  .btn-close-modal:hover { color: var(--paper); background: var(--panel-2); }
+
   /* ---------- welcome banner (agent) ---------- */
   .welcome-banner {
     position: relative; overflow: hidden;
@@ -726,137 +767,222 @@
       </div>
     </div>
 
-    <div class="agent-layout-grid">
-      <!-- LEFT COLUMN: Codification Form -->
-      <div class="agent-main-col">
-        <div class="card codif-card">
-          <div id="codif-form">
-            
-            <!-- Step 1: Caller Type -->
-            <div id="caller-type-block">
-              <label class="field-label">
-                <span class="step-num">1</span>
-                <span>Qui appelle ?</span>
-                <span class="ref-required-tag" id="caller-required-tag">Obligatoire</span>
-              </label>
-              <div class="caller-type-grid">
-                <button type="button" class="caller-btn" data-type="client">
-                  <span class="caller-icon">👤</span> Client
-                </button>
-                <button type="button" class="caller-btn" data-type="agent">
-                  <span class="caller-icon">🎧</span> Agent / Expert
-                </button>
-              </div>
-            </div>
-
-            <!-- Step 2: Reference -->
-            <div class="form-step-block">
-              <label class="field-label">
-                <span class="step-num">2</span>
-                <span>Référence du sinistre</span>
-                <span class="ref-required-tag" id="ref-required-tag">Obligatoire</span>
-              </label>
-              <div class="ref-input-wrap">
-                <input id="ref-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="Ex : 08202621" autocomplete="off">
-              </div>
-              <div id="warn-banner" class="warn-banner"></div>
-              <div id="ref-memory" class="ref-memory"></div>
-            </div>
-
-            <!-- Step 3: Motif selection -->
-            <div class="form-step-block">
-              <label class="field-label">
-                <span class="step-num">3</span>
-                <span>Motif de l'appel</span>
-                <span class="shortcut-tip">Raccourcis clavier [Q] à [H]</span>
-              </label>
-              <div class="motif-groups">
-                <div class="motif-group-box">
-                  <div class="motif-group-title">
-                    <span class="title-dot blue"></span> Déclaration &amp; suivi de dossier
-                  </div>
-                  <div class="motif-grid group-declaration" data-group="declaration"></div>
-                </div>
-                <div class="motif-group-box">
-                  <div class="motif-group-title">
-                    <span class="title-dot gold"></span> Demandes
-                  </div>
-                  <div class="motif-grid group-demande" data-group="demande"></div>
-                </div>
-                <div class="motif-group-box">
-                  <div class="motif-group-title">
-                    <span class="title-dot rust"></span> Réclamations
-                  </div>
-                  <div class="motif-grid group-reclamation" data-group="reclamation"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Step 4: Comment (conditional) -->
-            <div id="comment-block" class="hidden form-step-block">
-              <label class="field-label">
-                <span class="step-num">4</span>
-                <span>Commentaire</span>
-                <span class="ref-required-tag">Obligatoire</span>
-              </label>
-              <textarea id="comment-input" placeholder="Précisez la raison de la demande sans suite..."></textarea>
-            </div>
-
-            <!-- Submit Row -->
-            <div class="submit-row">
-              <button id="submit-btn" disabled>
-                <span>Codifier l'appel</span>
-                <span class="kbd-badge">Entrée ↵</span>
-              </button>
-            </div>
-
-          </div>
-
-          <!-- Success Screen -->
-          <div id="codif-success" class="hidden">
-            <div class="check">✓</div>
-            <div class="ticket-big" id="success-ticket"></div>
-            <div class="ref-echo">Référence <b id="success-ref"></b> codifiée avec succès</div>
-            <div id="success-quote"></div>
-            <button id="new-codif-btn">+ Nouvelle codification <span class="kbd-badge">Entrée ↵</span></button>
-          </div>
-        </div>
-      </div>
-
-      <!-- RIGHT COLUMN: Stats & Recent Calls -->
-      <div class="agent-side-col">
-        <div class="card agent-stats-card">
-          <div class="section-title" style="font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span>📊</span> Mes statistiques
-          </div>
-          <div class="mystats-grid">
-            <div class="mini">
-              <div class="label">Aujourd'hui</div>
-              <div class="value" id="my-today">0</div>
-            </div>
-            <div class="mini">
-              <div class="label">7 derniers jours</div>
-              <div class="value" id="my-week">0</div>
-            </div>
-            <div class="mini full">
-              <div class="label">Top motif personnel</div>
-              <div class="value" id="my-top-motif" style="font-size:13px;line-height:1.3;">—</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card recent-list">
-          <div class="section-title" style="font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span>⏱️</span> Appels récents
-          </div>
-          <div id="recent-container">
-            <p class="empty-state">Aucun appel codifié dans cette session.</p>
-          </div>
-        </div>
-      </div>
-
+    <!-- Agent Navigation Tabs -->
+    <div class="agent-nav-bar">
+      <button type="button" class="agent-nav-tab active" id="agent-tab-btn-codif">
+        <span>⚡ Codifier un appel</span>
+      </button>
+      <button type="button" class="agent-nav-tab" id="agent-tab-btn-history">
+        <span>📜 Historique de mes appels</span>
+        <span class="tab-badge-num" id="agent-history-badge">0</span>
+      </button>
     </div>
+
+    <!-- PANE 1: CODIFICATION FORM -->
+    <div id="agent-pane-codif" class="agent-pane">
+      <div class="agent-layout-grid">
+        <!-- LEFT COLUMN: Codification Form -->
+        <div class="agent-main-col">
+          <div class="card codif-card">
+            <div id="codif-form">
+              
+              <!-- Step 1: Caller Type -->
+              <div id="caller-type-block">
+                <label class="field-label">
+                  <span class="step-num">1</span>
+                  <span>Qui appelle ?</span>
+                  <span class="ref-required-tag" id="caller-required-tag">Obligatoire</span>
+                </label>
+                <div class="caller-type-grid">
+                  <button type="button" class="caller-btn" data-type="client">
+                    <span class="caller-icon">👤</span> Client
+                  </button>
+                  <button type="button" class="caller-btn" data-type="agent">
+                    <span class="caller-icon">🎧</span> Agent / Expert
+                  </button>
+                </div>
+              </div>
+
+              <!-- Step 2: Reference -->
+              <div class="form-step-block">
+                <label class="field-label">
+                  <span class="step-num">2</span>
+                  <span>Référence du sinistre</span>
+                  <span class="ref-required-tag" id="ref-required-tag">Obligatoire</span>
+                </label>
+                <div class="ref-input-wrap">
+                  <input id="ref-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="Ex : 08202621" autocomplete="off">
+                </div>
+                <div id="warn-banner" class="warn-banner"></div>
+                <div id="ref-memory" class="ref-memory"></div>
+              </div>
+
+              <!-- Step 3: Motif selection -->
+              <div class="form-step-block">
+                <label class="field-label">
+                  <span class="step-num">3</span>
+                  <span>Motif de l'appel</span>
+                  <span class="shortcut-tip">Raccourcis clavier [Q] à [H]</span>
+                </label>
+                <div class="motif-groups">
+                  <div class="motif-group-box">
+                    <div class="motif-group-title">
+                      <span class="title-dot blue"></span> Déclaration &amp; suivi de dossier
+                    </div>
+                    <div class="motif-grid group-declaration" data-group="declaration"></div>
+                  </div>
+                  <div class="motif-group-box">
+                    <div class="motif-group-title">
+                      <span class="title-dot gold"></span> Demandes
+                    </div>
+                    <div class="motif-grid group-demande" data-group="demande"></div>
+                  </div>
+                  <div class="motif-group-box">
+                    <div class="motif-group-title">
+                      <span class="title-dot rust"></span> Réclamations
+                    </div>
+                    <div class="motif-grid group-reclamation" data-group="reclamation"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 4: Comment (conditional) -->
+              <div id="comment-block" class="hidden form-step-block">
+                <label class="field-label">
+                  <span class="step-num">4</span>
+                  <span>Commentaire</span>
+                  <span class="ref-required-tag">Obligatoire</span>
+                </label>
+                <textarea id="comment-input" placeholder="Précisez la raison de la demande sans suite..."></textarea>
+              </div>
+
+              <!-- Submit Row -->
+              <div class="submit-row">
+                <button id="submit-btn" disabled>
+                  <span>Codifier l'appel</span>
+                  <span class="kbd-badge">Entrée ↵</span>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- Success Screen -->
+            <div id="codif-success" class="hidden">
+              <div class="check">✓</div>
+              <div class="ticket-big" id="success-ticket"></div>
+              <div class="ref-echo">Référence <b id="success-ref"></b> codifiée avec succès</div>
+              <div id="success-quote"></div>
+              <button id="new-codif-btn">+ Nouvelle codification <span class="kbd-badge">Entrée ↵</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Stats & Recent Calls -->
+        <div class="agent-side-col">
+          <div class="card agent-stats-card">
+            <div class="section-title" style="font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+              <span>📊</span> Mes statistiques
+            </div>
+            <div class="mystats-grid">
+              <div class="mini">
+                <div class="label">Aujourd'hui</div>
+                <div class="value" id="my-today">0</div>
+              </div>
+              <div class="mini">
+                <div class="label">7 derniers jours</div>
+                <div class="value" id="my-week">0</div>
+              </div>
+              <div class="mini full">
+                <div class="label">Top motif personnel</div>
+                <div class="value" id="my-top-motif" style="font-size:13px;line-height:1.3;">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="recent-list card">
+            <div class="section-title" style="font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+              <span>⏱️</span> Appels récents
+            </div>
+            <div id="recent-container">
+              <p class="empty-state">Aucun appel codifié dans cette session.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANE 2: AGENT HISTORY & EDITING -->
+    <div id="agent-pane-history" class="agent-pane hidden">
+      <div class="card">
+        <div class="section-title" style="font-size:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+          <span>Historique complet de vos appels codifiés</span>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <select id="agent-history-period" style="padding:6px 12px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);">
+              <option value="today">Aujourd'hui</option>
+              <option value="week">7 derniers jours</option>
+              <option value="month">30 derniers jours</option>
+              <option value="all">Tout l'historique</option>
+            </select>
+            <input id="agent-history-search" type="text" placeholder="Rechercher réf ou ticket..." style="padding:6px 12px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);width:220px;">
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>N° Ticket</th>
+                <th>Référence</th>
+                <th>Motif</th>
+                <th>Qui</th>
+                <th>Date</th>
+                <th>Heure</th>
+                <th>Commentaire</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="agent-history-tbody"></tbody>
+          </table>
+        </div>
+        <div id="agent-history-empty" class="empty-state hidden">Aucun appel trouvé dans votre historique.</div>
+      </div>
+    </div>
+
   </section>
+
+  <!-- AGENT EDIT ENTRY MODAL -->
+  <div id="agent-edit-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 520px; width: 90%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--paper);">Modifier l'appel codifié</h3>
+        <button type="button" class="btn-close-modal" id="close-agent-edit-modal">✕</button>
+      </div>
+
+      <form id="agent-edit-form" onsubmit="return false;">
+        <input type="hidden" id="edit-entry-id">
+
+        <label class="field-label">Référence du sinistre</label>
+        <input type="text" id="edit-entry-ref" placeholder="Référence..." style="width:100%;padding:10px 14px;font-size:13.5px;border:1px solid var(--line-strong);border-radius:6px;background:var(--panel-2);color:var(--text);margin-bottom:14px;">
+
+        <label class="field-label">Qui a appelé ?</label>
+        <select id="edit-entry-caller" style="width:100%;padding:10px 14px;font-size:13.5px;border:1px solid var(--line-strong);border-radius:6px;background:var(--panel-2);color:var(--text);margin-bottom:14px;">
+          <option value="client">Client</option>
+          <option value="agent">Agent / Expert</option>
+        </select>
+
+        <label class="field-label">Motif de l'appel</label>
+        <select id="edit-entry-motif" style="width:100%;padding:10px 14px;font-size:13.5px;border:1px solid var(--line-strong);border-radius:6px;background:var(--panel-2);color:var(--text);margin-bottom:14px;"></select>
+
+        <label class="field-label">Commentaire / Précision</label>
+        <textarea id="edit-entry-comment" placeholder="Commentaire..." style="width:100%;min-height:80px;padding:10px 14px;font-size:13px;border:1px solid var(--line-strong);border-radius:6px;background:var(--panel-2);color:var(--text);margin-bottom:18px;"></textarea>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" class="btn-outline" id="cancel-agent-edit-btn" style="padding:8px 16px;">Annuler</button>
+          <button type="submit" class="btn-gold" id="save-agent-edit-btn" style="width:auto;padding:8px 20px;">Enregistrer la modification</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <section id="view-admin" class="screen hidden">
     <div class="admin-toolbar-top">
@@ -1167,6 +1293,26 @@ const api = {
     } catch (e) {
       return false;
     }
+  },
+
+  async updateEntry(entry) {
+    try {
+      const res = await authFetch('/api/entries/' + encodeURIComponent(entry.id), {
+        method: 'PUT',
+        body: JSON.stringify(entry)
+      });
+      if (res.ok) return true;
+    } catch (e) {}
+    try {
+      const entries = await this.getEntries();
+      const idx = entries.findIndex(e => e.id === entry.id);
+      if (idx !== -1) {
+        entries[idx] = { ...entries[idx], ...entry };
+        localStorage.setItem("codif_entries", JSON.stringify(entries));
+        return true;
+      }
+    } catch (e) {}
+    return false;
   },
 
   async saveEntries(entries) {
@@ -2001,6 +2147,177 @@ function resetCodifForm(){
   updateSubmitState();
 }
 
+/* ---------- Agent Tabs & History Editing ---------- */
+function switchAgentTab(tab) {
+  const tabCodifBtn = document.getElementById("agent-tab-btn-codif");
+  const tabHistBtn = document.getElementById("agent-tab-btn-history");
+  const paneCodif = document.getElementById("agent-pane-codif");
+  const paneHist = document.getElementById("agent-pane-history");
+
+  if (tab === 'history') {
+    if (tabCodifBtn) tabCodifBtn.classList.remove("active");
+    if (tabHistBtn) tabHistBtn.classList.add("active");
+    if (paneCodif) paneCodif.classList.add("hidden");
+    if (paneHist) paneHist.classList.remove("hidden");
+    renderAgentHistory();
+  } else {
+    if (tabHistBtn) tabHistBtn.classList.remove("active");
+    if (tabCodifBtn) tabCodifBtn.classList.add("active");
+    if (paneHist) paneHist.classList.add("hidden");
+    if (paneCodif) paneCodif.classList.remove("hidden");
+    setTimeout(() => document.getElementById("ref-input")?.focus(), 50);
+  }
+}
+
+function renderAgentHistory() {
+  const tbody = document.getElementById("agent-history-tbody");
+  const emptyState = document.getElementById("agent-history-empty");
+  const periodSel = document.getElementById("agent-history-period");
+  const searchInput = document.getElementById("agent-history-search");
+  const badgeNum = document.getElementById("agent-history-badge");
+
+  if (!tbody) return;
+
+  const myEntries = allEntries.filter(e => e.agent === currentAgent);
+  if (badgeNum) badgeNum.textContent = myEntries.length;
+
+  const period = periodSel ? periodSel.value : 'today';
+  const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const now = new Date();
+
+  let cutoff = null;
+  if (period === "today") cutoff = todayStr(now);
+  if (period === "week") { const d = new Date(now); d.setDate(d.getDate() - 7); cutoff = d.toISOString(); }
+  if (period === "month") { const d = new Date(now); d.setDate(d.getDate() - 30); cutoff = d.toISOString(); }
+
+  const filtered = myEntries.filter(e => {
+    if (period === "today" && e.date !== cutoff) return false;
+    if ((period === "week" || period === "month") && e.ts < cutoff) return false;
+    if (query) {
+      const ticketStr = ticketNo(e.id).toLowerCase();
+      const refStr = (e.ref || '').toLowerCase();
+      if (!ticketStr.includes(query) && !refStr.includes(query)) return false;
+    }
+    return true;
+  }).sort((a,b) => b.ts.localeCompare(a.ts));
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = "";
+    if (emptyState) emptyState.classList.remove("hidden");
+    return;
+  }
+
+  if (emptyState) emptyState.classList.add("hidden");
+
+  tbody.innerHTML = filtered.map(e => {
+    const m = motifById(e.motifId);
+    return `<tr>
+      <td class="ticket-no">${ticketNo(e.id)}</td>
+      <td class="ref-cell ${!e.ref ? 'ref-none' : ''}">${escapeHtml(displayRef(e.ref))}</td>
+      <td><span class="badge badge-${m ? m.group : ''}">${m ? escapeHtml(m.label) : escapeHtml(e.motifId)}</span></td>
+      <td>${e.callerType ? `<span class="badge-caller ${e.callerType}">${callerLabel(e.callerType)}</span>` : '<span class="ref-none">—</span>'}</td>
+      <td>${e.date}</td>
+      <td>${e.time}</td>
+      <td class="comment-cell">${e.comment ? escapeHtml(e.comment) : '<span class="ref-none">—</span>'}</td>
+      <td style="text-align:right;">
+        <button type="button" class="btn-outline edit-agent-entry-btn" data-id="${e.id}" style="padding:4px 10px;font-size:11.5px;font-weight:700;">✏️ Modifier</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  tbody.querySelectorAll(".edit-agent-entry-btn").forEach(btn => {
+    btn.onclick = () => openAgentEditModal(btn.dataset.id);
+  });
+}
+
+function openAgentEditModal(id) {
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry) return;
+
+  document.getElementById("edit-entry-id").value = entry.id;
+  document.getElementById("edit-entry-ref").value = entry.ref || "";
+  document.getElementById("edit-entry-caller").value = entry.callerType || "client";
+  document.getElementById("edit-entry-comment").value = entry.comment || "";
+
+  const motifSelect = document.getElementById("edit-entry-motif");
+  motifSelect.innerHTML = MOTIFS.map(m =>
+    `<option value="${m.id}" ${m.id === entry.motifId ? 'selected' : ''}>${escapeHtml(m.label)} (${GROUP_LABELS[m.group] || m.group})</option>`
+  ).join("");
+
+  const modal = document.getElementById("agent-edit-modal");
+  modal.classList.remove("hidden");
+}
+
+function closeAgentEditModal() {
+  const modal = document.getElementById("agent-edit-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+async function saveAgentEdit() {
+  const id = document.getElementById("edit-entry-id").value;
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry) return;
+
+  const newRef = document.getElementById("edit-entry-ref").value.trim().replace(/\D/g,"");
+  const newCaller = document.getElementById("edit-entry-caller").value;
+  const newMotif = document.getElementById("edit-entry-motif").value;
+  const newComment = document.getElementById("edit-entry-comment").value.trim();
+
+  const updated = {
+    ...entry,
+    ref: newRef,
+    callerType: newCaller,
+    motifId: newMotif,
+    comment: newComment || null
+  };
+
+  const saveBtn = document.getElementById("save-agent-edit-btn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Enregistrement...";
+
+  const ok = await api.updateEntry(updated);
+
+  saveBtn.disabled = false;
+  saveBtn.textContent = "Enregistrer la modification";
+
+  if (ok) {
+    const idx = allEntries.findIndex(e => e.id === id);
+    if (idx !== -1) allEntries[idx] = updated;
+
+    closeAgentEditModal();
+    renderAgentHistory();
+    renderMyStats();
+    showToast("Codification modifiée avec succès !", "success");
+  } else {
+    showToast("Échec de la modification. Veuillez réessayer.", "error");
+  }
+}
+
+function setupAgentHistoryEvents() {
+  const tabCodifBtn = document.getElementById("agent-tab-btn-codif");
+  const tabHistBtn = document.getElementById("agent-tab-btn-history");
+  if (tabCodifBtn) tabCodifBtn.onclick = () => switchAgentTab('codif');
+  if (tabHistBtn) tabHistBtn.onclick = () => switchAgentTab('history');
+
+  const periodSel = document.getElementById("agent-history-period");
+  const searchInput = document.getElementById("agent-history-search");
+  if (periodSel) periodSel.onchange = () => renderAgentHistory();
+  if (searchInput) searchInput.oninput = debounce(renderAgentHistory, 150);
+
+  const closeBtn = document.getElementById("close-agent-edit-modal");
+  const cancelBtn = document.getElementById("cancel-agent-edit-btn");
+  if (closeBtn) closeBtn.onclick = closeAgentEditModal;
+  if (cancelBtn) cancelBtn.onclick = closeAgentEditModal;
+
+  const editForm = document.getElementById("agent-edit-form");
+  if (editForm) {
+    editForm.onsubmit = (e) => {
+      e.preventDefault();
+      saveAgentEdit();
+    };
+  }
+}
+
 async function enterAgentView(){
   // Sécurité : un admin ne peut pas accéder à la page de saisie
   if (currentRole === 'admin') {
@@ -2008,6 +2325,7 @@ async function enterAgentView(){
   }
   allEntries = await api.getEntries();
   goTo("view-agent");
+  switchAgentTab('codif');
   renderUserDropdown(currentAgent, currentRole);
   document.getElementById("wb-eyebrow").textContent = greetingWord();
   document.getElementById("wb-name").textContent = firstName(currentAgent);
@@ -2015,6 +2333,9 @@ async function enterAgentView(){
   document.getElementById("codif-form").classList.remove("hidden");
   renderSessionChip();
   renderMyStats();
+  const myEntriesCount = allEntries.filter(e => e.agent === currentAgent).length;
+  const badgeNum = document.getElementById("agent-history-badge");
+  if (badgeNum) badgeNum.textContent = myEntriesCount;
   updateSubmitState();
   setTimeout(() => document.getElementById("ref-input").focus(), 50);
 }
@@ -2710,6 +3031,7 @@ async function init(){
   updateDbStatusUI();
   renderMotifButtons();
   setupUserDropdownEvents();
+  setupAgentHistoryEvents();
 
   currentAgent = await api.getCurrentAgent();
   currentRole = await api.getCurrentRole();
