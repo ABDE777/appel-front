@@ -1907,57 +1907,69 @@ function renderAccountList(){
   container.innerHTML = allAccounts.map(a => {
     const safeName = escapeHtml(a.name);
     return `
-      <div class="account-item" style="border-bottom:1px solid var(--line);padding:8px 0;">
+      <div class="account-item" style="border-bottom:1px solid var(--line);padding:10px 0;" data-name="${safeName}" data-role="${a.role}">
         <div class="account-row" style="display:flex;justify-content:space-between;align-items:center;">
           <span>
-            <span class="name-btn" data-name="${safeName}" style="cursor:pointer;font-weight:600;">${safeName}</span>
-            <span class="role-badge ${a.role}">${a.role === 'admin' ? 'Admin' : 'Chargé'}</span>
+            <span class="name-btn" style="cursor:pointer;font-weight:600;">${safeName}</span>
+            <span class="role-badge ${a.role}" style="margin-left:6px;">${a.role === 'admin' ? 'Admin' : 'Chargé'}</span>
           </span>
           <div style="display:flex;gap:6px;">
-            <button class="btn-outline edit-btn" data-name="${safeName}" style="padding:3px 8px;font-size:11px;">Modifier</button>
-            <button class="remove" data-name="${safeName}" data-role="${a.role}">Retirer</button>
+            <button class="btn-outline edit-btn" style="padding:3px 10px;font-size:11px;">Modifier</button>
+            <button class="remove" style="padding:3px 10px;font-size:11px;">Retirer</button>
           </div>
         </div>
-        <div class="edit-box hidden" id="edit-box-${safeName}" style="margin-top:8px;padding:10px 12px;background:var(--panel-2);border-radius:6px;">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
-            <input type="text" id="edit-name-${safeName}" value="${safeName}" placeholder="Nouveau nom" style="padding:5px 8px;font-size:12px;border:1px solid var(--line-strong);border-radius:4px;flex:1;min-width:120px;">
-            <input type="password" id="edit-pass-${safeName}" placeholder="Nouveau mot de passe (optionnel)" style="padding:5px 8px;font-size:12px;border:1px solid var(--line-strong);border-radius:4px;flex:1;min-width:160px;">
+        <div class="edit-box hidden" style="margin-top:10px;padding:12px;background:var(--panel-2);border-radius:6px;border:1px solid var(--line);">
+          <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;font-weight:600;">Modifier l'utilisateur</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+            <div style="flex:1;min-width:140px;">
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:3px;">Nom d'utilisateur</label>
+              <input type="text" class="edit-name-input" value="${safeName}" placeholder="Nouveau nom" style="width:100%;padding:6px 10px;font-size:12.5px;border:1px solid var(--line-strong);border-radius:4px;background:var(--panel);color:var(--text);">
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <label style="display:block;font-size:11px;color:var(--text-muted);margin-bottom:3px;">Nouveau mot de passe (optionnel)</label>
+              <input type="password" class="edit-pass-input" placeholder="Laisser vide si inchangé" style="width:100%;padding:6px 10px;font-size:12.5px;border:1px solid var(--line-strong);border-radius:4px;background:var(--panel);color:var(--text);">
+            </div>
           </div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn-gold save-edit-btn" data-name="${safeName}" data-role="${a.role}" style="padding:5px 12px;font-size:11px;width:auto;">Enregistrer</button>
-            <button class="btn-outline cancel-edit-btn" data-name="${safeName}" style="padding:5px 8px;font-size:11px;">Annuler</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-gold save-edit-btn" style="padding:6px 16px;font-size:11.5px;width:auto;">Enregistrer les modifications</button>
+            <button class="btn-outline cancel-edit-btn" style="padding:6px 12px;font-size:11.5px;">Annuler</button>
           </div>
         </div>
       </div>`;
   }).join("");
   
   container.querySelectorAll(".name-btn").forEach(el => {
-    el.addEventListener("click", () => showAgentDetail(el.dataset.name));
+    const item = el.closest(".account-item");
+    el.addEventListener("click", () => showAgentDetail(item.dataset.name));
   });
 
   container.querySelectorAll(".edit-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      const name = btn.dataset.name;
-      const box = document.getElementById("edit-box-" + name);
+      const item = btn.closest(".account-item");
+      const box = item.querySelector(".edit-box");
       box.classList.toggle("hidden");
-      const input = document.getElementById("edit-pass-" + name);
-      if (!box.classList.contains("hidden")) input.focus();
+      if (!box.classList.contains("hidden")) {
+        const nameInput = item.querySelector(".edit-name-input");
+        nameInput.focus();
+        nameInput.select();
+      }
     });
   });
 
   container.querySelectorAll(".cancel-edit-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      const name = btn.dataset.name;
-      document.getElementById("edit-box-" + name).classList.add("hidden");
+      const item = btn.closest(".account-item");
+      item.querySelector(".edit-box").classList.add("hidden");
     });
   });
 
   container.querySelectorAll(".save-edit-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const oldName = btn.dataset.name;
-      const role = btn.dataset.role;
-      const nameInput = document.getElementById("edit-name-" + oldName);
-      const passInput = document.getElementById("edit-pass-" + oldName);
+      const item = btn.closest(".account-item");
+      const oldName = item.dataset.name;
+      const role = item.dataset.role;
+      const nameInput = item.querySelector(".edit-name-input");
+      const passInput = item.querySelector(".edit-pass-input");
       const newName = nameInput.value.trim();
       const newPassword = passInput.value.trim() || null;
 
@@ -1967,7 +1979,7 @@ function renderAccountList(){
         return;
       }
       btn.disabled = true;
-      btn.textContent = '...';
+      btn.textContent = 'Enregistrement...';
 
       let ok = false;
       if (role === 'admin') {
@@ -1977,17 +1989,19 @@ function renderAccountList(){
       }
 
       if (ok) {
-        // Mettre à jour le tableau local
-        if (role === 'admin') {
-          const idx = adminUsers.findIndex(a => a.name === oldName);
-          if (idx !== -1) adminUsers[idx].name = newName;
-        } else {
-          const idx = agents.findIndex(a => a.name === oldName);
-          if (idx !== -1) agents[idx].name = newName;
+        if (oldName === currentAgent) {
+          currentAgent = newName;
+          await api.setCurrentAgent(newName);
         }
+
+        allEntries = await api.getEntries();
+        agents = await api.getAgents();
+        adminUsers = await api.getAdmins();
+
         renderAccountList();
         populateFilterOptions();
         loadLoginUsersDropdown();
+        renderAdmin();
       } else {
         alert(`Échec de la modification pour ${oldName}.`);
         btn.disabled = false;
@@ -1998,8 +2012,9 @@ function renderAccountList(){
   
   container.querySelectorAll(".remove").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const name = btn.dataset.name;
-      const role = btn.dataset.role;
+      const item = btn.closest(".account-item");
+      const name = item.dataset.name;
+      const role = item.dataset.role;
       btn.disabled = true;
       btn.textContent = '...';
       if (role === 'admin') {
