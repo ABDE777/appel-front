@@ -443,16 +443,18 @@
       <h2>Connexion</h2>
       <p class="hint">Sélectionnez votre identifiant pour accéder au registre.</p>
       
-      <label class="field-label">Identifiant / Nom</label>
-      <select id="login-user-select">
-        <option value="">Chargement des comptes...</option>
-      </select>
-      
-      <label class="field-label">Mot de passe</label>
-      <input id="login-password" type="password" placeholder="Mot de passe">
-      
-      <div class="login-error" id="login-error">Mot de passe incorrect.</div>
-      <button class="btn-gold" id="login-btn">Se connecter</button>
+      <form id="login-form" onsubmit="return false;">
+        <label class="field-label">Identifiant / Nom</label>
+        <select id="login-user-select" name="username">
+          <option value="">Chargement des comptes...</option>
+        </select>
+        
+        <label class="field-label">Mot de passe</label>
+        <input id="login-password" name="password" type="password" placeholder="Mot de passe" autocomplete="current-password">
+        
+        <div class="login-error" id="login-error">Mot de passe incorrect.</div>
+        <button type="submit" class="btn-gold" id="login-btn">Se connecter</button>
+      </form>
     </div>
   </section>
 
@@ -950,8 +952,11 @@ async function loadLoginUsersDropdown(){
 }
 
 /* ---------- unified login ---------- */
+document.getElementById("login-form").addEventListener("submit", e => {
+  e.preventDefault();
+  tryUnifiedLogin();
+});
 document.getElementById("login-btn").addEventListener("click", tryUnifiedLogin);
-document.getElementById("login-password").addEventListener("keydown", e => { if(e.key === "Enter") tryUnifiedLogin(); });
 
 async function tryUnifiedLogin(){
   const select = document.getElementById("login-user-select");
