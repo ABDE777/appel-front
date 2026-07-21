@@ -249,6 +249,43 @@
     border:1px solid var(--line-strong);border-radius:var(--radius);padding:9px 12px;font-size:13px;
     background:var(--panel);color:var(--text);font-family:var(--sans);
   }
+
+  /* ---------- Admin Sidebar Layout ---------- */
+  .admin-layout{display:flex;gap:22px;align-items:flex-start;margin-top:16px;}
+  .admin-sidebar{
+    width:220px;flex-shrink:0;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 10px;box-shadow:var(--shadow-sm);position:sticky;top:80px;
+  }
+  .sidebar-title{
+    font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);
+    font-weight:700;padding:4px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:8px;
+  }
+  .sidebar-menu{display:flex;flex-direction:column;gap:3px;}
+  .sidebar-item{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+    font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;
+    border:1px solid transparent;transition:all .18s var(--ease);user-select:none;
+  }
+  .sidebar-item:hover{background:var(--panel-2);color:var(--paper);transform:translateX(2px);}
+  .sidebar-item.active{
+    background:var(--amber-bg);color:var(--gold-text);border-color:rgba(201,162,39,0.35);
+    box-shadow:0 2px 6px var(--gold-glow);
+  }
+  .sidebar-item .icon{font-size:15px;width:20px;display:flex;justify-content:center;}
+  .sidebar-item .badge-count{
+    margin-left:auto;font-size:10.5px;padding:2px 7px;border-radius:10px;
+    background:var(--panel-2);color:var(--text-muted);font-weight:700;
+  }
+  .sidebar-item.active .badge-count{background:var(--gold);color:#241C05;}
+  .admin-content{flex:1;min-width:0;}
+  .admin-tab-pane{display:none;}
+  .admin-tab-pane.active{display:block;animation:screenIn .3s var(--ease);}
+  @media (max-width:860px){
+    .admin-layout{flex-direction:column;}
+    .admin-sidebar{width:100%;position:static;}
+    .sidebar-menu{flex-direction:row;overflow-x:auto;padding-bottom:4px;}
+    .sidebar-item{white-space:nowrap;}
+  }
   .toolbar-group input{width:70px;text-align:center;font-family:var(--mono);}
 
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
@@ -567,95 +604,150 @@
       </div>
     </div>
 
-    <div class="stat-grid">
-      <div class="stat-card"><div class="label">Appels — période</div><div class="value" id="stat-total">0</div></div>
-      <div class="stat-card"><div class="label">Appels aujourd'hui</div><div class="value" id="stat-today">0</div></div>
-      <div class="stat-card alert"><div class="label">Références en alerte</div><div class="value" id="stat-hot">0</div></div>
-      <div class="stat-card"><div class="label">Motif dominant</div><div class="value" id="stat-top-motif" style="font-size:15px;">—</div></div>
-    </div>
-
-    <div id="alert-section"></div>
-
-    <div class="card">
-      <div class="section-title" style="font-size:15px;">Volume horaire</div>
-      <div class="section-hint" id="hourly-period-hint">Répartition des codifications par heure — période sélectionnée.</div>
-      <div id="hourly-chart" class="hourly-chart"></div>
-      <div id="hourly-peak" class="hourly-peak"></div>
-    </div>
-
-    <div class="card">
-      <div class="section-title" style="font-size:15px;">Dossiers à risque</div>
-      <div class="section-hint">Références avec plusieurs réclamations sur les 30 derniers jours.</div>
-      <div id="risk-list"></div>
-    </div>
-
-    <div class="card leaderboard-card">
-      <div class="section-title" style="font-size:15px;">Top chargés</div>
-      <div class="section-hint" id="leaderboard-period-hint">Classement sur : aujourd'hui.</div>
-      <div class="leaderboard" id="leaderboard"></div>
-      <div class="agent-detail" id="agent-detail"></div>
-    </div>
-
-    <div class="card">
-      <div class="section-title" style="font-size:15px;">Rapport d'activité détaillé</div>
-      <div class="section-hint" id="report-period-hint">—</div>
-      <div id="report-content"></div>
-    </div>
-
-    <div class="card">
-      <div class="filters">
-        <select id="filter-motif"><option value="">Tous les motifs</option></select>
-        <select id="filter-agent"><option value="">Tous les comptes</option></select>
-        <select id="filter-caller">
-          <option value="">Client / Agent — tous</option>
-          <option value="client">Client</option>
-          <option value="agent">Agent</option>
-        </select>
-        <input id="filter-search" type="text" placeholder="Rechercher une référence...">
-        <button class="btn-outline" id="export-btn">Exporter CSV</button>
-        <button class="btn-outline" id="export-pdf-btn">Exporter PDF</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>N°</th><th>Référence</th><th>Motif</th><th>Qui</th><th>Chargé</th><th>Date</th><th>Heure</th><th>Commentaire</th><th>Note</th></tr></thead>
-          <tbody id="table-body"></tbody>
-        </table>
-      </div>
-      <div id="admin-empty" class="empty-state hidden">Aucun appel ne correspond à ces filtres.</div>
-    </div>
-    <div class="card">
-      <div class="section-title">Gestion des comptes</div>
-      <div class="section-hint">Créez des comptes pour les chargés ou les administrateurs.</div>
-      <div class="account-form">
-        <input id="new-account-name" type="text" placeholder="Nom de l'utilisateur">
-        <input id="new-account-password" type="text" placeholder="Mot de passe">
-        <select id="new-account-role">
-          <option value="agent">Chargé</option>
-          <option value="admin">Administrateur</option>
-        </select>
-        <button class="btn-outline" id="add-account-btn">Ajouter</button>
-      </div>
-
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
-        <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Importer des comptes (CSV / Excel)</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <label id="import-label" style="padding:7px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer;font-size:12.5px;background:var(--panel-2);color:var(--text);transition:background .2s;">
-            📂 Choisir un fichier (CSV / XLSX)
-            <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none;">
-          </label>
-          <select id="import-role-select" style="padding:7px 10px;border:1px solid var(--line-strong);border-radius:var(--radius);font-size:12.5px;background:var(--panel-2);color:var(--text);">
-            <option value="agent">Chargé</option>
-            <option value="admin">Administrateur</option>
-          </select>
-          <button id="import-btn" class="btn-gold" style="padding:7px 18px;font-size:12.5px;width:auto;" disabled>Importer</button>
-          <span id="import-status" style="font-size:12px;color:var(--text-muted);"></span>
+    <div class="admin-layout">
+      <!-- SIDEBAR -->
+      <aside class="admin-sidebar">
+        <div class="sidebar-title">Menu Administration</div>
+        <div class="sidebar-menu">
+          <div class="sidebar-item active" data-tab="tab-dashboard">
+            <span class="icon">📊</span>
+            <span>Tableau de bord</span>
+          </div>
+          <div class="sidebar-item" data-tab="tab-appels">
+            <span class="icon">📋</span>
+            <span>Registre des appels</span>
+          </div>
+          <div class="sidebar-item" data-tab="tab-risques">
+            <span class="icon">⚠️</span>
+            <span>Dossiers à risque</span>
+            <span class="badge-count" id="sidebar-hot-badge">0</span>
+          </div>
+          <div class="sidebar-item" data-tab="tab-top">
+            <span class="icon">🏆</span>
+            <span>Top chargés</span>
+          </div>
+          <div class="sidebar-item" data-tab="tab-comptes">
+            <span class="icon">👥</span>
+            <span>Gestion des comptes</span>
+          </div>
         </div>
-        <div id="import-preview" style="margin-top:8px;font-size:12px;color:var(--text-secondary);"></div>
-      </div>
+      </aside>
 
-      <div class="account-list" id="account-list"></div>
-      <div id="db-status-admin" style="margin-top:15px; font-size:12px; display:flex; align-items:center; gap:6px;">
-        <div id="db-status-dot-admin" style="width:8px; height:8px; border-radius:50%; background:#EAB308;"></div>
+      <!-- MAIN CONTENT PANES -->
+      <div class="admin-content">
+
+        <!-- Tab 1: Dashboard -->
+        <div id="tab-dashboard" class="admin-tab-pane active">
+          <div class="stat-grid">
+            <div class="stat-card"><div class="label">Appels — période</div><div class="value" id="stat-total">0</div></div>
+            <div class="stat-card"><div class="label">Appels aujourd'hui</div><div class="value" id="stat-today">0</div></div>
+            <div class="stat-card alert"><div class="label">Références en alerte</div><div class="value" id="stat-hot">0</div></div>
+            <div class="stat-card"><div class="label">Motif dominant</div><div class="value" id="stat-top-motif" style="font-size:15px;">—</div></div>
+          </div>
+
+          <div class="card">
+            <div class="section-title" style="font-size:15px;">Volume horaire</div>
+            <div class="section-hint" id="hourly-period-hint">Répartition des codifications par heure — période sélectionnée.</div>
+            <div id="hourly-chart" class="hourly-chart"></div>
+            <div id="hourly-peak" class="hourly-peak"></div>
+          </div>
+
+          <div class="card">
+            <div class="section-title" style="font-size:15px;">Rapport d'activité détaillé</div>
+            <div class="section-hint" id="report-period-hint">—</div>
+            <div id="report-content"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Registre des appels -->
+        <div id="tab-appels" class="admin-tab-pane">
+          <div class="card">
+            <div class="section-title" style="font-size:15px;margin-bottom:14px;">Registre des appels codifiés</div>
+            <div class="filters">
+              <select id="filter-motif"><option value="">Tous les motifs</option></select>
+              <select id="filter-agent"><option value="">Tous les comptes</option></select>
+              <select id="filter-caller">
+                <option value="">Client / Agent — tous</option>
+                <option value="client">Client</option>
+                <option value="agent">Agent</option>
+              </select>
+              <input id="filter-search" type="text" placeholder="Rechercher une référence...">
+              <button class="btn-outline" id="export-btn">Exporter CSV</button>
+              <button class="btn-outline" id="export-pdf-btn">Exporter PDF</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>N°</th><th>Référence</th><th>Motif</th><th>Qui</th><th>Chargé</th><th>Date</th><th>Heure</th><th>Commentaire</th><th>Note</th></tr></thead>
+                <tbody id="table-body"></tbody>
+              </table>
+            </div>
+            <div id="admin-empty" class="empty-state hidden">Aucun appel ne correspond à ces filtres.</div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Dossiers à risque -->
+        <div id="tab-risques" class="admin-tab-pane">
+          <div id="alert-section"></div>
+          <div class="card">
+            <div class="section-title" style="font-size:15px;">Dossiers à risque & Alertes réclamations</div>
+            <div class="section-hint">Références avec plusieurs réclamations sur les 30 derniers jours.</div>
+            <div id="risk-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Top chargés -->
+        <div id="tab-top" class="admin-tab-pane">
+          <div class="card leaderboard-card">
+            <div class="section-title" style="font-size:15px;">Top chargés & Performance</div>
+            <div class="section-hint" id="leaderboard-period-hint">Classement sur : aujourd'hui.</div>
+            <div class="leaderboard" id="leaderboard"></div>
+            <div class="agent-detail" id="agent-detail"></div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Gestion des comptes -->
+        <div id="tab-comptes" class="admin-tab-pane">
+          <div class="card">
+            <div class="section-title">Gestion des comptes & Utilisateurs</div>
+            <div class="section-hint">Créez ou modifiez des comptes pour les chargés ou les administrateurs.</div>
+            <div class="account-form">
+              <input id="new-account-name" type="text" placeholder="Nom de l'utilisateur">
+              <input id="new-account-password" type="text" placeholder="Mot de passe">
+              <select id="new-account-role">
+                <option value="agent">Chargé</option>
+                <option value="admin">Administrateur</option>
+              </select>
+              <button class="btn-outline" id="add-account-btn">Ajouter</button>
+            </div>
+
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+              <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Importer des comptes (CSV / Excel)</div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <label id="import-label" style="padding:8px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer;font-size:12.5px;background:var(--panel-2);color:var(--text);transition:background .2s;">
+                  📂 Choisir un fichier (CSV / XLSX)
+                  <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none;">
+                </label>
+                <select id="import-role-select" style="padding:8px 10px;border:1px solid var(--line-strong);border-radius:var(--radius);font-size:12.5px;background:var(--panel-2);color:var(--text);">
+                  <option value="agent">Chargé</option>
+                  <option value="admin">Administrateur</option>
+                </select>
+                <button id="import-btn" class="btn-gold" style="padding:8px 18px;font-size:12.5px;width:auto;" disabled>Importer</button>
+                <span id="import-status" style="font-size:12px;color:var(--text-muted);"></span>
+              </div>
+              <div id="import-preview" style="margin-top:8px;font-size:12px;color:var(--text-secondary);"></div>
+            </div>
+
+            <div class="account-list" id="account-list"></div>
+            <div id="db-status-admin" style="margin-top:15px; font-size:12px; display:flex; align-items:center; gap:6px;">
+              <div id="db-status-dot-admin" style="width:8px; height:8px; border-radius:50%; background:#EAB308;"></div>
+              <span id="db-status-text-admin" style="color:var(--text-muted); font-weight:600;">Chargement...</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
         <span id="db-status-text-admin" style="color:var(--text-muted); font-weight:600;">Chargement...</span>
       </div>
     </div>
@@ -1856,6 +1948,9 @@ function renderAdmin(){
       ${hotRefs.map(h => `<div class="alert-row"><span>${escapeHtml(h.ref)}</span><b>${h.count} codifications</b></div>`).join("")}
     </div>` : "";
 
+  const hotBadge = document.getElementById("sidebar-hot-badge");
+  if(hotBadge) hotBadge.textContent = hotRefs.length;
+
   const tbody = document.getElementById("table-body");
   const emptyState = document.getElementById("admin-empty");
   if(list.length === 0){
@@ -2127,6 +2222,19 @@ async function addAccount(){
   loadLoginUsersDropdown();
 }
 
+function setupAdminSidebar() {
+  document.querySelectorAll(".sidebar-item").forEach(item => {
+    item.onclick = () => {
+      document.querySelectorAll(".sidebar-item").forEach(i => i.classList.remove("active"));
+      document.querySelectorAll(".admin-tab-pane").forEach(p => p.classList.remove("active"));
+      item.classList.add("active");
+      const targetId = item.dataset.tab;
+      const targetPane = document.getElementById(targetId);
+      if (targetPane) targetPane.classList.add("active");
+    };
+  });
+}
+
 async function enterAdminView(){
   if (currentRole !== 'admin') {
     return await enterAgentView();
@@ -2147,6 +2255,7 @@ async function enterAdminView(){
   renderAdmin();
   renderAccountList();
   setupImportUI();
+  setupAdminSidebar();
 
   // Chargement en PARALLÈLE de toutes les ressources (promise.all = 80% plus rapide)
   try {
