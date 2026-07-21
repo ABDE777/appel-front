@@ -655,7 +655,9 @@ async function authFetch(url, options = {}) {
   try {
     const res = await fetch(getApiUrl(url), options);
     if (res.status === 401 || res.status === 403) {
-      if (localStorage.getItem("codif_token")) {
+      // N'effectuer un logout automatique que si l'utilisateur est déjà confirmé connecté
+      // (évite le logout au chargement de la page si le token est expiré)
+      if (currentAgent && localStorage.getItem("codif_token")) {
         logout();
         alert("Votre session a expiré. Veuillez vous reconnecter.");
       }
@@ -1846,12 +1848,33 @@ async function enterAdminView(){
 async function init(){
   updateDbStatusUI();
   renderMotifButtons();
-  await loadLoginUsersDropdown();
-  
-  agents = await api.getAgents();
-  allEntries = await api.getEntries();
+
+  // 1. Lire la session depuis localStorage en PREMIER (avant tout appel API)
   currentAgent = await api.getCurrentAgent();
   currentRole = await api.getCurrentRole();
+  const token = localStorage.getItem("codif_token");
+
+  // 2. Si une session est présente, valider le token avec le serveur
+  if (currentAgent && token) {
+    try {
+      const res = await fetch(getApiUrl('/api/status'), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        // Token invalide ou expiré → effacer la session proprement
+        currentAgent = null;
+        currentRole = null;
+        localStorage.removeItem("codif_token");
+        await api.clearCurrentAgent();
+        await api.clearCurrentRole();
+      }
+    } catch (e) {
+      // Serveur injoignable — garder la session locale, l'utilisateur verra un mode dégradé
+    }
+  }
+
+  // 3. Charger le dropdown de connexion
+  await loadLoginUsersDropdown();
 
   document.querySelectorAll(".caller-btn").forEach(btn => {
     btn.addEventListener("click", () => selectCallerType(btn.dataset.type));
@@ -1879,6 +1902,7 @@ async function init(){
   document.getElementById("add-account-btn").addEventListener("click", addAccount);
   document.getElementById("new-account-name").addEventListener("keydown", e => { if(e.key === "Enter") addAccount(); });
 
+  // 4. Rediriger vers la bonne vue selon le rôle
   if(currentAgent && currentRole === 'admin'){
     enterAdminView();
   }else if(currentAgent){
