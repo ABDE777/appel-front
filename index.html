@@ -70,6 +70,36 @@
   button:active { transform: scale(0.97); }
   button:disabled { opacity: 0.6; cursor: not-allowed; }
 
+  /* Inline & Global Spinners */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulseGlow { 0%, 100% { opacity: 0.6; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.15); } }
+  
+  .spinner-sm {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #FFFFFF;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block; vertical-align: middle; flex-shrink: 0;
+  }
+  .spinner-dark {
+    border-color: rgba(217, 119, 6, 0.25);
+    border-top-color: var(--gold);
+  }
+  
+  .global-loader {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 10000;
+    background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(12px);
+    color: #FFFFFF; padding: 10px 22px; border-radius: 30px;
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3); border: 1px solid rgba(255, 255, 255, 0.15);
+    animation: toastIn 0.25s var(--ease) forwards;
+    pointer-events: none;
+  }
+  .status-pulse {
+    animation: pulseGlow 1.5s ease-in-out infinite;
+  }
+
   /* Toast Notifications */
   #toast-container {
     position: fixed; bottom: 24px; right: 24px; z-index: 9999;
@@ -506,6 +536,11 @@
 </head>
 <body>
 
+<div id="global-loader" class="global-loader hidden">
+  <span class="spinner-sm"></span>
+  <span id="loader-text">Chargement...</span>
+</div>
+
 <header>
   <div class="brand" id="brand-home">
     <img src="./WAFA-IMA.png" alt="Wafa IMA Assistance Logo" class="brand-logo">
@@ -851,8 +886,13 @@ async function updateDbStatusUI() {
   const dotAdmin = document.getElementById("db-status-dot-admin");
   const textAdmin = document.getElementById("db-status-text-admin");
 
+  if (dot) dot.classList.add("status-pulse");
+  if (dotAdmin) dotAdmin.classList.add("status-pulse");
+
   const updateUI = (online, message, title) => {
     apiOnline = online;
+    if (dot) dot.classList.remove("status-pulse");
+    if (dotAdmin) dotAdmin.classList.remove("status-pulse");
     const color = online ? "#22C55E" : "#EAB308";
     const textCol = online ? "#15803D" : "#854D0E";
     
@@ -1187,6 +1227,18 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
+function showLoading(text = "Chargement...") {
+  const el = document.getElementById("global-loader");
+  const txt = document.getElementById("loader-text");
+  if (txt) txt.textContent = text;
+  if (el) el.classList.remove("hidden");
+}
+
+function hideLoading() {
+  const el = document.getElementById("global-loader");
+  if (el) el.classList.add("hidden");
+}
+
 /* ---------- screen switching ---------- */
 const SCREENS = ["view-login","view-agent","view-admin"];
 function goTo(id){
@@ -1221,6 +1273,7 @@ async function tryUnifiedLogin(){
   const name = select.value.trim();
   const password = document.getElementById("login-password").value;
   const errorEl = document.getElementById("login-error");
+  const loginBtn = document.getElementById("login-btn");
   errorEl.classList.remove("show");
 
   if (!name || !password) {
@@ -1228,6 +1281,10 @@ async function tryUnifiedLogin(){
     errorEl.classList.add("show");
     return;
   }
+
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = '<span class="spinner-sm"></span> Connexion...';
+  showLoading("Connexion en cours...");
 
   try {
     const res = await fetch(getApiUrl('/api/auth/login'), {
@@ -1237,6 +1294,9 @@ async function tryUnifiedLogin(){
     });
 
     if (res.status === 401) {
+      hideLoading();
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Se connecter';
       errorEl.textContent = "Mot de passe incorrect.";
       errorEl.classList.add("show");
       return;
@@ -1253,6 +1313,9 @@ async function tryUnifiedLogin(){
 
         // Vérifier si l'utilisateur doit changer son mot de passe (première connexion)
         const mustChange = await api.mustChangePassword();
+        hideLoading();
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Se connecter';
         if (mustChange) {
           showFirstLoginModal();
           return;
@@ -1266,6 +1329,10 @@ async function tryUnifiedLogin(){
       }
     }
   } catch (e) {}
+
+  hideLoading();
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'Se connecter';
 
   // Fallback local
   const accAdmin = adminUsers.find(a => a.name === name);
@@ -1614,9 +1681,11 @@ async function submitEntry(){
   };
   const submitBtn = document.getElementById("submit-btn");
   submitBtn.disabled = true;
-  submitBtn.textContent = "Enregistrement...";
+  submitBtn.innerHTML = '<span class="spinner-sm"></span> Enregistrement...';
+  showLoading("Codification de l'appel...");
   allEntries.push(entry);
   const ok = await api.insertEntry(entry);
+  hideLoading();
   submitBtn.textContent = "Codifier l'appel";
   if(ok){
     sessionEntries.push(entry);
@@ -2333,6 +2402,7 @@ async function enterAdminView(){
   setupAdminSidebar();
 
   // Chargement en PARALLÈLE de toutes les ressources (promise.all = 80% plus rapide)
+  showLoading("Chargement de l'administration...");
   try {
     const [entriesData, agentsData, adminsData, thresholdData, notesData] = await Promise.all([
       api.getEntries(),
@@ -2355,6 +2425,8 @@ async function enterAdminView(){
     renderAccountList();
   } catch(e) {
     console.error("Erreur chargement admin:", e);
+  } finally {
+    hideLoading();
   }
 }
 
