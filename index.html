@@ -81,14 +81,11 @@
     display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
   }
   .brand{display:flex;align-items:center;gap:14px;cursor:pointer;}
-  .brand .seal{
-    width:40px;height:40px;border:1.5px solid var(--gold);border-radius:50%;
-    display:flex;align-items:center;justify-content:center;font-family:var(--serif);
-    font-size:14px;color:var(--gold-text);font-weight:bold;background:var(--amber-bg);
-    transition:transform .4s var(--ease), box-shadow .4s var(--ease);
-    box-shadow:0 0 0 0 var(--gold-glow);
+  .brand-logo{
+    height:40px;width:auto;max-width:140px;object-fit:contain;
+    border-radius:4px;transition:transform .3s var(--ease);
   }
-  .brand:hover .seal{transform:rotate(8deg) scale(1.05);box-shadow:0 0 22px 2px var(--gold-glow);}
+  .brand:hover .brand-logo{transform:scale(1.05);}
   .brand h1{font-family:var(--serif);font-size:18.5px;font-weight:normal;margin:0;letter-spacing:.01em;color:var(--paper);}
   .brand .sub{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-top:2px;}
   .header-right{display:flex;align-items:center;gap:16px;}
@@ -483,7 +480,7 @@
 
 <header>
   <div class="brand" id="brand-home">
-    <div class="seal">CA</div>
+    <img src="./WAFA-IMA.png" alt="Wafa IMA Assistance Logo" class="brand-logo">
     <div>
       <h1>Registre des appels</h1>
       <div class="sub">Sinistre automobile — codification des motifs</div>
