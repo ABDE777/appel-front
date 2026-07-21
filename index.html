@@ -328,6 +328,20 @@
     background: var(--line-strong); color: var(--paper);
   }
 
+  /* Ref Validation Badge */
+  .ref-validation-badge {
+    transition: all 0.2s var(--ease);
+  }
+  .ref-validation-badge.valid {
+    background: #ECFDF5; border: 1px solid #10B981; color: #065F46;
+  }
+  .ref-validation-badge.invalid {
+    background: #FEF2F2; border: 1px solid #EF4444; color: #991B1B;
+  }
+  .ref-validation-badge.info {
+    background: #FFFBEB; border: 1px solid #F59E0B; color: #92400E;
+  }
+
   /* Modal Overlay */
   .modal-overlay {
     position: fixed; inset: 0; z-index: 9999;
@@ -810,9 +824,37 @@
                   <span>Référence du sinistre</span>
                   <span class="ref-required-tag" id="ref-required-tag">Obligatoire</span>
                 </label>
-                <div class="ref-input-wrap">
-                  <input id="ref-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="Ex : 08202621" autocomplete="off">
+
+                <!-- Guided 3-Part Segmented Helper -->
+                <div class="ref-segmented-builder" id="ref-segmented-builder" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                  <div style="flex:1.2;min-width:140px;">
+                    <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:3px;">1. CODE USAGE</span>
+                    <select id="ref-seg-usage" style="width:100%;padding:8px 10px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);font-weight:600;">
+                      <option value="">Sélectionner...</option>
+                      <option value="08">08 - Personne (Particulier)</option>
+                      <option value="09">09 - Commercial (Utilitaire)</option>
+                      <option value="10">10 - Moto</option>
+                      <option value="12">12 - Flotte</option>
+                    </select>
+                  </div>
+                  <div style="width:110px;">
+                    <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:3px;">2. ANNÉE</span>
+                    <input type="number" id="ref-seg-year" min="1950" max="2026" placeholder="2026" style="width:100%;padding:8px 10px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);font-weight:600;">
+                  </div>
+                  <div style="flex:1.5;min-width:160px;">
+                    <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:3px;">3. N° CHRONO (4 à 7 chiffres)</span>
+                    <input type="text" id="ref-seg-chrono" inputmode="numeric" pattern="[0-9]*" maxlength="7" placeholder="Ex: 123456" style="width:100%;padding:8px 10px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);font-weight:600;">
+                  </div>
                 </div>
+
+                <!-- Complete Output Reference Input -->
+                <div class="ref-input-wrap">
+                  <input id="ref-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="13" placeholder="Ex : 082026123456" autocomplete="off" style="font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:1px;">
+                </div>
+
+                <!-- Live Validation Status Badge -->
+                <div id="ref-validation-badge" class="ref-validation-badge" style="display:none;margin-top:8px;font-size:12px;padding:8px 12px;border-radius:6px;font-weight:600;"></div>
+
                 <div id="warn-banner" class="warn-banner"></div>
                 <div id="ref-memory" class="ref-memory"></div>
               </div>
@@ -2006,6 +2048,117 @@ function updateCallerRequirementUI(optional){
     tag.classList.remove("optional");
   }
 }
+const CODE_USAGE_LABELS = {
+  "08": "Personne (Particulier)",
+  "09": "Commercial (Utilitaire)",
+  "10": "Moto",
+  "12": "Flotte"
+};
+
+function validateSinistreRef(refStr) {
+  if (!refStr) return { valid: false, reason: "vide" };
+  
+  const cleaned = refStr.replace(/\D/g, "");
+  const currentYear = new Date().getFullYear();
+
+  if (cleaned.length < 2) {
+    return { valid: false, reason: "Code usage incomplet (doit commencer par 08, 09, 10 ou 12)" };
+  }
+
+  const code = cleaned.slice(0, 2);
+  if (!["08", "09", "10", "12"].includes(code)) {
+    return { valid: false, reason: `Code usage "${code}" invalide. Doit être 08 (Personne), 09 (Commercial), 10 (Moto) ou 12 (Flotte)` };
+  }
+
+  if (cleaned.length < 6) {
+    return { valid: false, reason: `Année incomplète (ex : ${code}${currentYear}...)` };
+  }
+
+  const yearStr = cleaned.slice(2, 6);
+  const yearNum = parseInt(yearStr, 10);
+
+  if (isNaN(yearNum) || yearNum < 1950 || yearNum > currentYear) {
+    return { valid: false, reason: `Année "${yearStr}" invalide. Doit être entre 1950 et ${currentYear}` };
+  }
+
+  const chrono = cleaned.slice(6);
+  if (chrono.length < 4) {
+    return { valid: false, reason: `N° chronologique trop court (${chrono.length}/4 chiffres minimum)` };
+  }
+
+  if (chrono.length > 7) {
+    return { valid: false, reason: `N° chronologique trop long (${chrono.length}/7 chiffres maximum)` };
+  }
+
+  return {
+    valid: true,
+    codeUsage: code,
+    usageLabel: CODE_USAGE_LABELS[code] || "Valide",
+    year: yearNum,
+    chrono: chrono,
+    formatted: `${code} · ${yearStr} · ${chrono}`
+  };
+}
+
+function syncRefInputs() {
+  const mainInput = document.getElementById("ref-input");
+  const segUsage = document.getElementById("ref-seg-usage");
+  const segYear = document.getElementById("ref-seg-year");
+  const segChrono = document.getElementById("ref-seg-chrono");
+  const badge = document.getElementById("ref-validation-badge");
+
+  if (!mainInput || !badge) return;
+
+  const val = mainInput.value.replace(/\D/g, "");
+  
+  if (document.activeElement === mainInput) {
+    if (val.length >= 2 && ["08","09","10","12"].includes(val.slice(0,2))) {
+      if (segUsage) segUsage.value = val.slice(0,2);
+    } else {
+      if (segUsage) segUsage.value = "";
+    }
+    if (val.length >= 6) {
+      if (segYear) segYear.value = val.slice(2,6);
+    }
+    if (val.length > 6) {
+      if (segChrono) segChrono.value = val.slice(6);
+    } else {
+      if (segChrono) segChrono.value = "";
+    }
+  }
+
+  if (!val) {
+    badge.style.display = "none";
+    badge.className = "ref-validation-badge";
+    return;
+  }
+
+  const res = validateSinistreRef(val);
+  badge.style.display = "block";
+
+  if (res.valid) {
+    badge.className = "ref-validation-badge valid";
+    badge.innerHTML = `✔ Référence conforme — <b>Usage:</b> ${res.codeUsage} (${res.usageLabel}) | <b>Année:</b> ${res.year} | <b>N° Chrono:</b> ${res.chrono}`;
+  } else if (res.reason === "vide") {
+    badge.style.display = "none";
+  } else {
+    badge.className = "ref-validation-badge invalid";
+    badge.innerHTML = `⚠️ ${res.reason}`;
+  }
+}
+
+function updateRefFromSegments() {
+  const segUsage = document.getElementById("ref-seg-usage")?.value || "";
+  const segYear = document.getElementById("ref-seg-year")?.value || "";
+  const segChrono = (document.getElementById("ref-seg-chrono")?.value || "").replace(/\D/g,"");
+  const mainInput = document.getElementById("ref-input");
+
+  if (mainInput) {
+    mainInput.value = (segUsage + segYear + segChrono).slice(0, 13);
+    updateSubmitState();
+  }
+}
+
 function updateSubmitState(){
   const input = document.getElementById("ref-input");
   const cleaned = input.value.replace(/\D/g,"");
@@ -2013,13 +2166,18 @@ function updateSubmitState(){
   const ref = input.value.trim();
   const refOptional = !!(selectedMotif && OPTIONAL_REF_MOTIFS.includes(selectedMotif));
   updateRefRequirementUI(refOptional);
+
+  syncRefInputs();
+
+  const refValid = validateSinistreRef(ref).valid;
+  const okRef = refOptional ? true : refValid;
+
   const callerOptional = !!(selectedMotif && OPTIONAL_CALLER_MOTIFS.includes(selectedMotif));
   updateCallerRequirementUI(callerOptional);
   const commentRequired = !!(selectedMotif && COMMENT_REQUIRED_MOTIFS.includes(selectedMotif));
   const commentBlock = document.getElementById("comment-block");
   commentBlock.classList.toggle("hidden", !commentRequired);
   const commentVal = document.getElementById("comment-input").value.trim();
-  const okRef = !!(ref || refOptional);
   const okCaller = !!(selectedCallerType || callerOptional);
   const okComment = !commentRequired || !!commentVal;
   document.getElementById("submit-btn").disabled = !(okRef && okCaller && okComment && selectedMotif);
@@ -2262,6 +2420,15 @@ async function saveAgentEdit() {
   const newCaller = document.getElementById("edit-entry-caller").value;
   const newMotif = document.getElementById("edit-entry-motif").value;
   const newComment = document.getElementById("edit-entry-comment").value.trim();
+
+  const refOptional = OPTIONAL_REF_MOTIFS.includes(newMotif);
+  if (newRef && !refOptional) {
+    const vRes = validateSinistreRef(newRef);
+    if (!vRes.valid) {
+      showToast(`Référence invalide : ${vRes.reason}`, "error");
+      return;
+    }
+  }
 
   const updated = {
     ...entry,
@@ -3061,6 +3228,13 @@ async function init(){
   });
   document.getElementById("comment-input").addEventListener("input", updateSubmitState);
   document.getElementById("ref-input").addEventListener("input", updateSubmitState);
+  ["ref-seg-usage", "ref-seg-year", "ref-seg-chrono"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", updateRefFromSegments);
+      el.addEventListener("change", updateRefFromSegments);
+    }
+  });
   document.getElementById("ref-input").addEventListener("keydown", e => {
     if(e.key === "Enter" && !document.getElementById("submit-btn").disabled) submitEntry();
   });
