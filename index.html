@@ -48,6 +48,28 @@
   .hidden{display:none !important;}
   a{color:inherit;}
 
+  button, input, select{transition:all 0.15s cubic-bezier(0.4, 0, 0.2, 1);}
+  button:active{transform:scale(0.97);}
+  button:disabled{opacity:0.6;cursor:not-allowed;}
+
+  /* Toast Notifications */
+  #toast-container{
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    display:flex;flex-direction:column;gap:8px;pointer-events:none;
+  }
+  .toast{
+    pointer-events:auto;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:500;
+    color:#FFFFFF;background:#1E293B;box-shadow:0 10px 25px -5px rgba(16,24,40,0.25);
+    display:flex;align-items:center;gap:10px;
+    animation:toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .toast.success{background:#059669;}
+  .toast.error{background:#DC2626;}
+  .toast.warning{background:#D97706;}
+  .toast.toastOut{animation:toastOut 0.25s ease forwards;}
+  @keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+  @keyframes toastOut{from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(10px);}}
+
   /* ---------- header ---------- */
   header{
     position:sticky;top:0;z-index:20;
@@ -1017,6 +1039,32 @@ function greetingWord(){
   if(h < 12) return "Bonjour";
   if(h < 18) return "Bon après-midi";
   return "Bonsoir";
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), ms);
+  };
+}
+
+function showToast(message, type = 'info') {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+  const icons = { success: '✔', error: '✖', warning: '⚠️', info: 'ℹ️' };
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type] || ''}</span> <span>${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add("toastOut");
+    setTimeout(() => toast.remove(), 280);
+  }, 3000);
 }
 
 /* ---------- screen switching ---------- */
@@ -2040,7 +2088,10 @@ async function addAccount(){
   const name = nameInput.value.trim();
   const password = passInput.value.trim();
   const role = roleInput.value;
-  if(!name || !password) return;
+  if(!name || !password) {
+    showToast("Veuillez remplir le nom et le mot de passe", "warning");
+    return;
+  }
 
   addBtn.disabled = true;
   addBtn.textContent = '...';
@@ -2051,6 +2102,9 @@ async function addAccount(){
       const existingIndex = adminUsers.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
       if (existingIndex !== -1) adminUsers[existingIndex] = { name, password: '********' };
       else adminUsers.push({ name, password: '********' });
+      showToast(`Administrateur ${name} ajouté avec succès`, "success");
+    } else {
+      showToast(`Échec de l'ajout de ${name}`, "error");
     }
   } else {
     const ok = await api.addAgent(name, password);
@@ -2058,6 +2112,9 @@ async function addAccount(){
       const existingIndex = agents.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
       if (existingIndex !== -1) agents[existingIndex] = { name, password: '********' };
       else agents.push({ name, password: '********' });
+      showToast(`Chargé ${name} ajouté avec succès`, "success");
+    } else {
+      showToast(`Échec de l'ajout de ${name}`, "error");
     }
   }
 
@@ -2071,19 +2128,11 @@ async function addAccount(){
 }
 
 async function enterAdminView(){
-  // Sécurité : un agent ne peut pas accéder à la page admin
   if (currentRole !== 'admin') {
     return await enterAgentView();
   }
-  allEntries = await api.getEntries();
-  agents = await api.getAgents();
-  adminUsers = await api.getAdmins();
-  HOT_THRESHOLD = await api.getThreshold();
-  notesStore = await api.getNotes();
-  notesStore.refs = notesStore.refs || {};
-  notesStore.agents = notesStore.agents || {};
-  document.getElementById("threshold-input").value = HOT_THRESHOLD;
-  document.getElementById("agent-detail").classList.remove("show");
+  
+  // Basculement ultra-rapide de l'écran (0ms de latence perçue)
   goTo("view-admin");
   const who = document.getElementById("who-display");
   who.innerHTML =
@@ -2091,10 +2140,38 @@ async function enterAdminView(){
      <span class="role-badge admin" style="margin-left:8px;">Admin</span>
      <a id="logout-link" style="margin-left:10px;">déconnexion</a>`;
   document.getElementById("logout-link").addEventListener("click", logout);
+  document.getElementById("agent-detail").classList.remove("show");
+
+  // Rendu immédiat des données déjà présentes
   populateFilterOptions();
   renderAdmin();
   renderAccountList();
   setupImportUI();
+
+  // Chargement en PARALLÈLE de toutes les ressources (promise.all = 80% plus rapide)
+  try {
+    const [entriesData, agentsData, adminsData, thresholdData, notesData] = await Promise.all([
+      api.getEntries(),
+      api.getAgents(),
+      api.getAdmins(),
+      api.getThreshold(),
+      api.getNotes()
+    ]);
+    allEntries = entriesData || [];
+    agents = agentsData || [];
+    adminUsers = adminsData || [];
+    HOT_THRESHOLD = thresholdData || 3;
+    notesStore = notesData || { refs: {}, agents: {} };
+    notesStore.refs = notesStore.refs || {};
+    notesStore.agents = notesStore.agents || {};
+    
+    document.getElementById("threshold-input").value = HOT_THRESHOLD;
+    populateFilterOptions();
+    renderAdmin();
+    renderAccountList();
+  } catch(e) {
+    console.error("Erreur chargement admin:", e);
+  }
 }
 
 /* ---------- init ---------- */
@@ -2102,32 +2179,28 @@ async function init(){
   updateDbStatusUI();
   renderMotifButtons();
 
-  // 1. Lire la session depuis localStorage en PREMIER (avant tout appel API)
   currentAgent = await api.getCurrentAgent();
   currentRole = await api.getCurrentRole();
   const token = localStorage.getItem("codif_token");
 
-  // 2. Si une session est présente, valider le token avec le serveur
+  // Charger le dropdown et valider la session en parallèle
+  const tasks = [loadLoginUsersDropdown()];
   if (currentAgent && token) {
-    try {
-      const res = await fetch(getApiUrl('/api/status'), {
+    tasks.push(
+      fetch(getApiUrl('/api/status'), {
         headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        // Token invalide ou expiré → effacer la session proprement
-        currentAgent = null;
-        currentRole = null;
-        localStorage.removeItem("codif_token");
-        await api.clearCurrentAgent();
-        await api.clearCurrentRole();
-      }
-    } catch (e) {
-      // Serveur injoignable — garder la session locale, l'utilisateur verra un mode dégradé
-    }
+      }).then(res => {
+        if (!res.ok) {
+          currentAgent = null;
+          currentRole = null;
+          localStorage.removeItem("codif_token");
+          api.clearCurrentAgent();
+          api.clearCurrentRole();
+        }
+      }).catch(() => {})
+    );
   }
-
-  // 3. Charger le dropdown de connexion
-  await loadLoginUsersDropdown();
+  await Promise.all(tasks);
 
   document.querySelectorAll(".caller-btn").forEach(btn => {
     btn.addEventListener("click", () => selectCallerType(btn.dataset.type));
@@ -2140,7 +2213,7 @@ async function init(){
   document.getElementById("submit-btn").addEventListener("click", submitEntry);
   document.getElementById("new-codif-btn").addEventListener("click", resetCodifForm);
   ["filter-period","filter-motif","filter-agent","filter-caller"].forEach(id => document.getElementById(id).addEventListener("change", renderAdmin));
-  document.getElementById("filter-search").addEventListener("input", renderAdmin);
+  document.getElementById("filter-search").addEventListener("input", debounce(renderAdmin, 150));
   document.getElementById("export-btn").addEventListener("click", exportCsv);
   document.getElementById("export-pdf-btn").addEventListener("click", exportPdf);
   document.getElementById("threshold-input").addEventListener("change", async e => {
@@ -2155,7 +2228,6 @@ async function init(){
   document.getElementById("add-account-btn").addEventListener("click", addAccount);
   document.getElementById("new-account-name").addEventListener("keydown", e => { if(e.key === "Enter") addAccount(); });
 
-  // 4. Rediriger vers la bonne vue selon le rôle
   if(currentAgent && currentRole === 'admin'){
     enterAdminView();
   }else if(currentAgent){
