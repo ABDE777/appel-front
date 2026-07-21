@@ -100,6 +100,58 @@
     animation: pulseGlow 1.5s ease-in-out infinite;
   }
 
+  /* User Profile Dropdown Menu */
+  .user-dropdown-container {
+    position: relative; display: inline-block;
+  }
+  .user-pill-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px 5px 7px; border-radius: 20px;
+    border: 1px solid var(--line-strong); background: var(--panel);
+    color: var(--paper); font-size: 13px; font-weight: 700; cursor: pointer;
+    box-shadow: var(--shadow-sm); transition: all 0.2s var(--ease);
+  }
+  .user-pill-btn:hover {
+    border-color: var(--gold); background: var(--amber-bg); transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .user-avatar-badge {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF; font-weight: 800; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25); text-transform: uppercase;
+  }
+  .user-pill-arrow { font-size: 11px; color: var(--text-muted); transition: transform 0.2s var(--ease); }
+  .user-dropdown-container.open .user-pill-arrow { transform: rotate(180deg); }
+
+  .user-dropdown-menu {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 1000;
+    width: 220px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); padding: 8px;
+    box-shadow: var(--shadow-lg); backdrop-filter: blur(12px);
+    animation: screenIn 0.2s var(--ease);
+  }
+  .user-dropdown-header { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
+  .user-avatar-large {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF; font-weight: 800; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; text-transform: uppercase;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+  }
+  .user-dropdown-fullname { font-size: 13.5px; font-weight: 800; color: var(--paper); line-height: 1.2; }
+  .user-dropdown-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-weight: 600; }
+  .user-dropdown-divider { height: 1px; background: var(--line); margin: 6px 0; }
+  .user-dropdown-item {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px; border: none; background: transparent;
+    font-size: 13px; font-weight: 700; cursor: pointer; text-align: left;
+    transition: all 0.15s var(--ease); color: var(--text);
+  }
+  .user-dropdown-item.logout-item { color: var(--red); }
+  .user-dropdown-item.logout-item:hover { background: var(--red-bg); color: var(--red); }
+
   /* Toast Notifications */
   #toast-container {
     position: fixed; bottom: 24px; right: 24px; z-index: 9999;
@@ -554,7 +606,28 @@
       <span id="db-status-dot" style="width:7px;height:7px;border-radius:50%;background:#EAB308;"></span>
       <span id="db-status-text" style="color:var(--text-muted);font-weight:600;">Chargement...</span>
     </div>
-    <span class="who" id="who-display"></span>
+    <div class="user-dropdown-container hidden" id="user-menu-box">
+      <button type="button" class="user-pill-btn" id="user-pill-trigger">
+        <span class="user-avatar-badge" id="user-avatar-initial">U</span>
+        <span class="user-pill-name" id="user-pill-name">Utilisateur</span>
+        <span class="role-badge admin" id="user-pill-role">Admin</span>
+        <span class="user-pill-arrow">▾</span>
+      </button>
+      <div class="user-dropdown-menu hidden" id="user-dropdown-content">
+        <div class="user-dropdown-header">
+          <div class="user-avatar-large" id="user-avatar-large">U</div>
+          <div class="user-dropdown-info">
+            <div class="user-dropdown-fullname" id="user-dropdown-fullname">Utilisateur</div>
+            <div class="user-dropdown-sub" id="user-dropdown-sub">Session active</div>
+          </div>
+        </div>
+        <div class="user-dropdown-divider"></div>
+        <button type="button" class="user-dropdown-item logout-item" id="logout-dropdown-btn">
+          <span class="icon">🚪</span>
+          <span>Se déconnecter</span>
+        </button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -1365,11 +1438,74 @@ function logout(){
   api.clearCurrentAgent();
   api.clearCurrentRole();
   localStorage.removeItem("codif_token");
-  document.getElementById("who-display").textContent = "";
+  renderUserDropdown(null, null);
   document.getElementById("login-password").value = "";
   document.getElementById("login-error").classList.remove("show");
   loadLoginUsersDropdown();
   goTo("view-login");
+}
+
+function renderUserDropdown(name, role) {
+  const container = document.getElementById("user-menu-box");
+  if (!container) return;
+  if (!name) {
+    container.classList.add("hidden");
+    return;
+  }
+  container.classList.remove("hidden");
+  const initial = name.trim().charAt(0).toUpperCase() || "U";
+  document.getElementById("user-avatar-initial").textContent = initial;
+  document.getElementById("user-avatar-large").textContent = initial;
+  document.getElementById("user-pill-name").textContent = name;
+  document.getElementById("user-dropdown-fullname").textContent = name;
+  
+  const roleBadge = document.getElementById("user-pill-role");
+  if (role === 'admin') {
+    roleBadge.textContent = "Admin";
+    roleBadge.className = "role-badge admin";
+    document.getElementById("user-dropdown-sub").textContent = "Administrateur connecté";
+  } else {
+    roleBadge.textContent = "Chargé";
+    roleBadge.className = "role-badge agent";
+    document.getElementById("user-dropdown-sub").textContent = "Chargé d'appel connecté";
+  }
+}
+
+function setupUserDropdownEvents() {
+  const trigger = document.getElementById("user-pill-trigger");
+  const content = document.getElementById("user-dropdown-content");
+  const container = document.getElementById("user-menu-box");
+  const logoutBtn = document.getElementById("logout-dropdown-btn");
+
+  if (trigger && content) {
+    trigger.onclick = (e) => {
+      e.stopPropagation();
+      const isOpen = !content.classList.contains("hidden");
+      if (isOpen) {
+        content.classList.add("hidden");
+        container.classList.remove("open");
+      } else {
+        content.classList.remove("hidden");
+        container.classList.add("open");
+      }
+    };
+  }
+
+  if (logoutBtn) {
+    logoutBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (content) content.classList.add("hidden");
+      if (container) container.classList.remove("open");
+      logout();
+    };
+  }
+
+  document.addEventListener("click", (e) => {
+    if (container && !container.contains(e.target)) {
+      if (content) content.classList.add("hidden");
+      container.classList.remove("open");
+    }
+  });
 }
 
 /* ---------- First-login password change modal ---------- */
@@ -1729,11 +1865,7 @@ async function enterAgentView(){
   }
   allEntries = await api.getEntries();
   goTo("view-agent");
-  document.getElementById("who-display").innerHTML =
-    `<b>${escapeHtml(currentAgent)}</b>
-     <span class="role-badge agent" style="margin-left:8px;">Chargé</span>
-     <a id="logout-link" style="margin-left:10px;">déconnexion</a>`;
-  document.getElementById("logout-link").addEventListener("click", logout);
+  renderUserDropdown(currentAgent, currentRole);
   document.getElementById("wb-eyebrow").textContent = greetingWord();
   document.getElementById("wb-name").textContent = firstName(currentAgent);
   document.getElementById("codif-success").classList.add("hidden");
@@ -2391,12 +2523,7 @@ async function enterAdminView(){
   
   // Basculement ultra-rapide de l'écran (0ms de latence perçue)
   goTo("view-admin");
-  const who = document.getElementById("who-display");
-  who.innerHTML =
-    `<b>${escapeHtml(currentAgent)}</b>
-     <span class="role-badge admin" style="margin-left:8px;">Admin</span>
-     <a id="logout-link" style="margin-left:10px;">déconnexion</a>`;
-  document.getElementById("logout-link").addEventListener("click", logout);
+  renderUserDropdown(currentAgent, currentRole);
   document.getElementById("agent-detail").classList.remove("show");
 
   // Rendu immédiat des données déjà présentes
@@ -2439,6 +2566,7 @@ async function enterAdminView(){
 async function init(){
   updateDbStatusUI();
   renderMotifButtons();
+  setupUserDropdownEvents();
 
   currentAgent = await api.getCurrentAgent();
   currentRole = await api.getCurrentRole();
