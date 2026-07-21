@@ -613,6 +613,24 @@
         </select>
         <button class="btn-outline" id="add-account-btn">Ajouter</button>
       </div>
+
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+        <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Importer des comptes (CSV / Excel)</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label id="import-label" style="padding:7px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer;font-size:12.5px;background:var(--panel-2);color:var(--text);transition:background .2s;">
+            📂 Choisir un fichier (CSV / XLSX)
+            <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none;">
+          </label>
+          <select id="import-role-select" style="padding:7px 10px;border:1px solid var(--line-strong);border-radius:var(--radius);font-size:12.5px;background:var(--panel-2);color:var(--text);">
+            <option value="agent">Chargé</option>
+            <option value="admin">Administrateur</option>
+          </select>
+          <button id="import-btn" class="btn-gold" style="padding:7px 18px;font-size:12.5px;width:auto;" disabled>Importer</button>
+          <span id="import-status" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+        <div id="import-preview" style="margin-top:8px;font-size:12px;color:var(--text-secondary);"></div>
+      </div>
+
       <div class="account-list" id="account-list"></div>
       <div id="db-status-admin" style="margin-top:15px; font-size:12px; display:flex; align-items:center; gap:6px;">
         <div id="db-status-dot-admin" style="width:8px; height:8px; border-radius:50%; background:#EAB308;"></div>
@@ -621,8 +639,23 @@
     </div>
   </section>
 
+  <!-- Modale changement de mot de passe (première connexion) -->
+  <div id="change-pw-modal" class="hidden" style="position:fixed;inset:0;z-index:100;background:rgba(16,24,40,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:36px 32px;max-width:400px;width:90%;box-shadow:var(--shadow-lg);">
+      <h3 style="font-family:var(--serif);font-size:20px;font-weight:normal;margin:0 0 8px;color:var(--paper);">Première connexion</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 22px;">Votre mot de passe a été généré automatiquement. Veuillez le changer avant de continuer.</p>
+      <label class="field-label">Nouveau mot de passe</label>
+      <input id="change-pw-input" type="password" placeholder="Minimum 4 caractères" autocomplete="new-password" style="width:100%;padding:11px 13px;font-size:14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--panel-2);color:var(--text);font-family:var(--sans);margin-bottom:8px;">
+      <label class="field-label" style="margin-top:4px;">Confirmer le mot de passe</label>
+      <input id="change-pw-confirm" type="password" placeholder="Répétez le mot de passe" autocomplete="new-password" style="width:100%;padding:11px 13px;font-size:14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--panel-2);color:var(--text);font-family:var(--sans);margin-bottom:12px;">
+      <div id="change-pw-error" style="font-size:12.5px;color:var(--red);min-height:16px;margin-bottom:10px;"></div>
+      <button id="change-pw-btn" class="btn-gold">Enregistrer et continuer</button>
+    </div>
+  </div>
+
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* =========================================================================
@@ -782,11 +815,14 @@ const api = {
     } catch (e) { return false; }
   },
 
-  async updateAgent(name, password) {
+  async updateAgent(name, newName, password) {
     try {
+      const body = {};
+      if (newName && newName !== name) body.name = newName;
+      if (password) body.password = password;
       const res = await authFetch('/api/agents/' + encodeURIComponent(name), {
         method: 'PUT',
-        body: JSON.stringify({ password })
+        body: JSON.stringify(body)
       });
       return res.ok;
     } catch (e) { return false; }
@@ -817,10 +853,42 @@ const api = {
     } catch (e) { return false; }
   },
 
-  async updateAdmin(name, password) {
+  async updateAdmin(name, newName, password) {
     try {
+      const body = {};
+      if (newName && newName !== name) body.name = newName;
+      if (password) body.password = password;
       const res = await authFetch('/api/admins/' + encodeURIComponent(name), {
         method: 'PUT',
+        body: JSON.stringify(body)
+      });
+      return res.ok;
+    } catch (e) { return false; }
+  },
+
+  async importUsers(names, role) {
+    try {
+      const res = await authFetch('/api/agents/import', {
+        method: 'POST',
+        body: JSON.stringify({ names, role })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+    return null;
+  },
+
+  async mustChangePassword() {
+    try {
+      const res = await authFetch('/api/user/must-change');
+      if (res.ok) { const d = await res.json(); return d.mustChange; }
+    } catch (e) {}
+    return false;
+  },
+
+  async changeOwnPassword(password) {
+    try {
+      const res = await authFetch('/api/user/change-password', {
+        method: 'POST',
         body: JSON.stringify({ password })
       });
       return res.ok;
@@ -1015,6 +1083,13 @@ async function tryUnifiedLogin(){
         await api.setCurrentAgent(data.name);
         await api.setCurrentRole(data.role);
 
+        // Vérifier si l'utilisateur doit changer son mot de passe (première connexion)
+        const mustChange = await api.mustChangePassword();
+        if (mustChange) {
+          showFirstLoginModal();
+          return;
+        }
+
         if (data.role === 'admin') {
           return await enterAdminView();
         } else {
@@ -1060,6 +1135,150 @@ function logout(){
   document.getElementById("login-error").classList.remove("show");
   loadLoginUsersDropdown();
   goTo("view-login");
+}
+
+/* ---------- First-login password change modal ---------- */
+function showFirstLoginModal() {
+  const modal = document.getElementById("change-pw-modal");
+  modal.classList.remove("hidden");
+  modal.style.display = "flex";
+  document.getElementById("change-pw-input").value = "";
+  document.getElementById("change-pw-confirm").value = "";
+  document.getElementById("change-pw-error").textContent = "";
+  document.getElementById("change-pw-input").focus();
+}
+
+document.getElementById("change-pw-btn").addEventListener("click", async () => {
+  const pw1 = document.getElementById("change-pw-input").value;
+  const pw2 = document.getElementById("change-pw-confirm").value;
+  const errEl = document.getElementById("change-pw-error");
+  errEl.textContent = "";
+
+  if (pw1.length < 4) { errEl.textContent = "Le mot de passe doit comporter au moins 4 caractères."; return; }
+  if (pw1 !== pw2) { errEl.textContent = "Les mots de passe ne correspondent pas."; return; }
+
+  const btn = document.getElementById("change-pw-btn");
+  btn.disabled = true;
+  btn.textContent = "Enregistrement...";
+
+  const ok = await api.changeOwnPassword(pw1);
+  btn.disabled = false;
+  btn.textContent = "Enregistrer et continuer";
+
+  if (ok) {
+    document.getElementById("change-pw-modal").style.display = "none";
+    document.getElementById("change-pw-modal").classList.add("hidden");
+    if (currentRole === 'admin') {
+      await enterAdminView();
+    } else {
+      await enterAgentView();
+    }
+  } else {
+    errEl.textContent = "Erreur lors de la mise à jour. Réessayez.";
+  }
+});
+
+/* ---------- Admin: import CSV / Excel ---------- */
+function setupImportUI() {
+  const fileInput = document.getElementById("import-file-input");
+  const importBtn = document.getElementById("import-btn");
+  const importStatus = document.getElementById("import-status");
+  const importPreview = document.getElementById("import-preview");
+
+  if (!fileInput) return; // pas encore dans le DOM
+
+  let parsedNames = [];
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    importStatus.textContent = "";
+    importPreview.textContent = "";
+    importBtn.disabled = true;
+    parsedNames = [];
+
+    try {
+      const ext = file.name.split(".").pop().toLowerCase();
+      if (ext === "csv") {
+        const text = await file.text();
+        parsedNames = text.split(/[\r\n]+/)
+          .map(l => l.split(",")[0].replace(/^"|"$/g, "").trim())
+          .filter(Boolean);
+      } else if (ext === "xlsx" || ext === "xls") {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        parsedNames = rows.map(r => String(r[0] || "").trim()).filter(Boolean);
+        // Sauter l'en-tête si c'est une chaîne non-numérique évidente
+        if (parsedNames.length > 0 && /^(nom|name|prenom|login|user)/i.test(parsedNames[0])) {
+          parsedNames.shift();
+        }
+      } else {
+        importStatus.textContent = "⚠️ Format non supporté.";
+        return;
+      }
+
+      if (parsedNames.length === 0) {
+        importStatus.textContent = "⚠️ Aucun nom trouvé dans le fichier.";
+        return;
+      }
+
+      importPreview.innerHTML = `<b>${parsedNames.length} utilisateur(s) détecté(s) :</b> ${parsedNames.slice(0, 8).map(n => `<span style="background:var(--panel-2);padding:1px 6px;border-radius:4px;margin:0 2px;">${escapeHtml(n)}</span>`).join("")}${parsedNames.length > 8 ? ` <span style="color:var(--text-muted);">+${parsedNames.length - 8} autres</span>` : ""}`;
+      importBtn.disabled = false;
+      document.getElementById("import-label").textContent = `📄 ${file.name}`;
+    } catch (err) {
+      importStatus.textContent = "⚠️ Erreur de lecture : " + err.message;
+    }
+  });
+
+  importBtn.addEventListener("click", async () => {
+    if (!parsedNames.length) return;
+    const role = document.getElementById("import-role-select").value;
+    importBtn.disabled = true;
+    importBtn.textContent = "Importation...";
+    importStatus.textContent = "";
+
+    const result = await api.importUsers(parsedNames, role);
+
+    importBtn.textContent = "Importer";
+    if (!result || !result.created) {
+      importBtn.disabled = false;
+      importStatus.innerHTML = `<span style="color:var(--red);">Erreur lors de l'importation.</span>`;
+      return;
+    }
+
+    importStatus.innerHTML = `<span style="color:#4ade80;">✔ ${result.created.length} compte(s) créé(s) !</span>`;
+
+    // Recharger la liste des comptes
+    agents = await api.getAgents();
+    adminUsers = await api.getAdmins();
+    renderAccountList();
+    populateFilterOptions();
+    loadLoginUsersDropdown();
+
+    // Télécharger un CSV avec les identifiants générés
+    if (result.created.length > 0) {
+      const csvContent = "Nom,Mot de passe,Rôle\n" +
+        result.created.map(u => `${u.name},${u.password},${u.role}`).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `identifiants-importes-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    fileInput.value = "";
+    parsedNames = [];
+    importPreview.textContent = "";
+    document.getElementById("import-label").innerHTML = `📂 Choisir un fichier (CSV / XLSX)<input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" style="display:none;">`;
+    // Re-attacher l'event
+    document.getElementById("import-file-input").addEventListener("change", fileInput.onchange);
+  });
 }
 
 /* ---------- agent (codification) view ---------- */
@@ -1699,10 +1918,15 @@ function renderAccountList(){
             <button class="remove" data-name="${safeName}" data-role="${a.role}">Retirer</button>
           </div>
         </div>
-        <div class="edit-box hidden" id="edit-box-${safeName}" style="margin-top:8px;padding:8px 10px;background:var(--panel-2);border-radius:6px;display:flex;gap:8px;align-items:center;">
-          <input type="password" id="edit-pass-${safeName}" placeholder="Nouveau mot de passe" style="padding:5px 8px;font-size:12px;border:1px solid var(--line-strong);border-radius:4px;flex:1;">
-          <button class="btn-gold save-edit-btn" data-name="${safeName}" data-role="${a.role}" style="padding:5px 12px;font-size:11px;width:auto;">Enregistrer</button>
-          <button class="btn-outline cancel-edit-btn" data-name="${safeName}" style="padding:5px 8px;font-size:11px;">Annuler</button>
+        <div class="edit-box hidden" id="edit-box-${safeName}" style="margin-top:8px;padding:10px 12px;background:var(--panel-2);border-radius:6px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
+            <input type="text" id="edit-name-${safeName}" value="${safeName}" placeholder="Nouveau nom" style="padding:5px 8px;font-size:12px;border:1px solid var(--line-strong);border-radius:4px;flex:1;min-width:120px;">
+            <input type="password" id="edit-pass-${safeName}" placeholder="Nouveau mot de passe (optionnel)" style="padding:5px 8px;font-size:12px;border:1px solid var(--line-strong);border-radius:4px;flex:1;min-width:160px;">
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-gold save-edit-btn" data-name="${safeName}" data-role="${a.role}" style="padding:5px 12px;font-size:11px;width:auto;">Enregistrer</button>
+            <button class="btn-outline cancel-edit-btn" data-name="${safeName}" style="padding:5px 8px;font-size:11px;">Annuler</button>
+          </div>
         </div>
       </div>`;
   }).join("");
@@ -1730,12 +1954,16 @@ function renderAccountList(){
 
   container.querySelectorAll(".save-edit-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const name = btn.dataset.name;
+      const oldName = btn.dataset.name;
       const role = btn.dataset.role;
-      const passInput = document.getElementById("edit-pass-" + name);
-      const newPassword = passInput.value.trim();
-      if (!newPassword) {
-        alert("Veuillez saisir un nouveau mot de passe.");
+      const nameInput = document.getElementById("edit-name-" + oldName);
+      const passInput = document.getElementById("edit-pass-" + oldName);
+      const newName = nameInput.value.trim();
+      const newPassword = passInput.value.trim() || null;
+
+      if (!newName) { alert("Le nom ne peut pas être vide."); return; }
+      if (newName === oldName && !newPassword) {
+        alert("Aucune modification saisie.");
         return;
       }
       btn.disabled = true;
@@ -1743,16 +1971,25 @@ function renderAccountList(){
 
       let ok = false;
       if (role === 'admin') {
-        ok = await api.updateAdmin(name, newPassword);
+        ok = await api.updateAdmin(oldName, newName !== oldName ? newName : null, newPassword);
       } else {
-        ok = await api.updateAgent(name, newPassword);
+        ok = await api.updateAgent(oldName, newName !== oldName ? newName : null, newPassword);
       }
 
       if (ok) {
-        alert(`Le mot de passe de ${name} a été mis à jour avec succès.`);
+        // Mettre à jour le tableau local
+        if (role === 'admin') {
+          const idx = adminUsers.findIndex(a => a.name === oldName);
+          if (idx !== -1) adminUsers[idx].name = newName;
+        } else {
+          const idx = agents.findIndex(a => a.name === oldName);
+          if (idx !== -1) agents[idx].name = newName;
+        }
         renderAccountList();
+        populateFilterOptions();
+        loadLoginUsersDropdown();
       } else {
-        alert(`Échec de la modification pour ${name}.`);
+        alert(`Échec de la modification pour ${oldName}.`);
         btn.disabled = false;
         btn.textContent = 'Enregistrer';
       }
@@ -1842,6 +2079,7 @@ async function enterAdminView(){
   populateFilterOptions();
   renderAdmin();
   renderAccountList();
+  setupImportUI();
 }
 
 /* ---------- init ---------- */
