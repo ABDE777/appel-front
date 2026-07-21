@@ -1826,9 +1826,20 @@ function showAgentDetail(name){
   `;
   panel.classList.add("show");
   document.getElementById("agent-note-save").addEventListener("click", async () => {
+    const btn = document.getElementById("agent-note-save");
+    const val = document.getElementById("agent-note-input").value;
+    btn.disabled = true;
+    btn.textContent = "Enregistrement...";
     notesStore.agents = notesStore.agents || {};
-    notesStore.agents[name] = document.getElementById("agent-note-input").value;
-    await api.saveNotes(notesStore);
+    notesStore.agents[name] = val;
+    const ok = await api.saveNotes(notesStore);
+    btn.disabled = false;
+    btn.textContent = "Enregistrer la note";
+    if (ok) {
+      showToast(`Note sur ${name} enregistrée avec succès !`, "success");
+    } else {
+      showToast("Erreur lors de la sauvegarde de la note.", "error");
+    }
   });
 }
 function renderRiskList(){
@@ -1962,7 +1973,8 @@ function renderAdmin(){
     tbody.innerHTML = list.slice().sort((a,b) => b.ts.localeCompare(a.ts)).map(e => {
       const m = motifById(e.motifId);
       const isHot = e.ref && hotKeys.has(e.ref.toLowerCase()) && e.date === t;
-      const noteVal = e.ref ? ((notesStore.refs && notesStore.refs[e.ref.toLowerCase()]) || "") : "";
+      const noteKey = (e.ref || ("entry_" + e.id)).toLowerCase();
+      const noteVal = (notesStore.refs && notesStore.refs[noteKey]) || "";
       return `<tr>
         <td class="ticket-no">${ticketNo(e.id)}</td>
         <td class="ref-cell ${isHot ? 'ref-hot' : ''} ${!e.ref ? 'ref-none' : ''}">${escapeHtml(displayRef(e.ref))}</td>
@@ -1976,7 +1988,7 @@ function renderAdmin(){
           <button class="note-btn ${noteVal ? 'has-note' : ''}" data-id="${e.id}">✎</button>
           <div class="note-inline" id="note-${e.id}">
             <input type="text" value="${escapeHtml(noteVal)}" placeholder="Note...">
-            <button class="note-save" data-ref="${escapeHtml(e.ref)}">OK</button>
+            <button class="note-save" data-key="${escapeHtml(noteKey)}">OK</button>
           </div>
         </td>
       </tr>`;
@@ -1989,10 +2001,18 @@ function renderAdmin(){
     tbody.querySelectorAll(".note-save").forEach(btn => {
       btn.addEventListener("click", async () => {
         const input = btn.previousElementSibling;
-        if(!btn.dataset.ref) return;
+        const key = btn.dataset.key;
+        if(!key) return;
+        btn.disabled = true;
+        btn.textContent = "...";
         notesStore.refs = notesStore.refs || {};
-        notesStore.refs[btn.dataset.ref.toLowerCase()] = input.value.trim();
-        await api.saveNotes(notesStore);
+        notesStore.refs[key] = input.value.trim();
+        const ok = await api.saveNotes(notesStore);
+        if (ok) {
+          showToast("Note enregistrée avec succès !", "success");
+        } else {
+          showToast("Erreur lors de la sauvegarde de la note.", "error");
+        }
         renderAdmin();
       });
     });
