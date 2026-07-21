@@ -1864,6 +1864,15 @@ function showAgentDetail(name){
     btn.disabled = false;
     btn.textContent = "Enregistrer la note";
     if (ok) {
+      // Recharger les notes depuis le serveur pour synchronisation
+      try {
+        const fresh = await api.getNotes();
+        if (fresh) {
+          notesStore = fresh;
+          notesStore.refs = notesStore.refs || {};
+          notesStore.agents = notesStore.agents || {};
+        }
+      } catch(e) {}
       showToast(`Note sur ${name} enregistrée avec succès !`, "success");
     } else {
       showToast("Erreur lors de la sauvegarde de la note.", "error");
@@ -2013,7 +2022,8 @@ function renderAdmin(){
         <td>${e.time}</td>
         <td class="comment-cell">${e.comment ? escapeHtml(e.comment) : '<span class="ref-none">—</span>'}</td>
         <td>
-          <button class="note-btn ${noteVal ? 'has-note' : ''}" data-id="${e.id}">✎</button>
+          <button class="note-btn ${noteVal ? 'has-note' : ''}" data-id="${e.id}" title="${noteVal ? escapeHtml(noteVal) : 'Ajouter une note'}">✎</button>
+          ${noteVal ? `<div class="note-preview" style="font-size:11.5px;color:var(--gold-text);font-weight:600;margin-top:3px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--amber-bg);padding:2px 6px;border-radius:4px;border:1px solid rgba(217,119,6,0.25);" title="${escapeHtml(noteVal)}">📌 ${escapeHtml(noteVal)}</div>` : ''}
           <div class="note-inline" id="note-${e.id}">
             <input type="text" value="${escapeHtml(noteVal)}" placeholder="Note...">
             <button class="note-save" data-key="${escapeHtml(noteKey)}">OK</button>
@@ -2024,6 +2034,14 @@ function renderAdmin(){
     tbody.querySelectorAll(".note-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.getElementById("note-" + btn.dataset.id).classList.toggle("show");
+      });
+    });
+    tbody.querySelectorAll(".note-inline input").forEach(input => {
+      input.addEventListener("keydown", e => {
+        if(e.key === "Enter") {
+          const btn = input.nextElementSibling;
+          if(btn) btn.click();
+        }
       });
     });
     tbody.querySelectorAll(".note-save").forEach(btn => {
@@ -2037,6 +2055,15 @@ function renderAdmin(){
         notesStore.refs[key] = input.value.trim();
         const ok = await api.saveNotes(notesStore);
         if (ok) {
+          // Recharger les notes depuis le serveur pour s'assurer de la synchronisation
+          try {
+            const fresh = await api.getNotes();
+            if (fresh) {
+              notesStore = fresh;
+              notesStore.refs = notesStore.refs || {};
+              notesStore.agents = notesStore.agents || {};
+            }
+          } catch(e) {}
           showToast("Note enregistrée avec succès !", "success");
         } else {
           showToast("Erreur lors de la sauvegarde de la note.", "error");
