@@ -3398,10 +3398,26 @@ async function enterAdminView(){
   }
 }
 
+function populateYearDropdown() {
+  const select = document.getElementById("ref-seg-year");
+  if (!select) return;
+
+  const currentYear = new Date().getFullYear();
+  let html = `<option value="">Année...</option>`;
+
+  for (let year = currentYear; year >= 1950; year--) {
+    const isSelected = year === currentYear ? "selected" : "";
+    html += `<option value="${year}" ${isSelected}>${year}</option>`;
+  }
+
+  select.innerHTML = html;
+}
+
 /* ---------- init ---------- */
 async function init(){
   updateDbStatusUI();
   renderMotifButtons();
+  populateYearDropdown();
   setupUserDropdownEvents();
   setupAgentHistoryEvents();
 
