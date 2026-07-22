@@ -4033,6 +4033,7 @@ function setupAdminSidebar() {
       document.querySelectorAll(".admin-tab-pane").forEach(p => p.classList.remove("active"));
       item.classList.add("active");
       const targetId = item.dataset.tab;
+      localStorage.setItem("codif_active_tab", targetId);
       const targetPane = document.getElementById(targetId);
       if (targetPane) targetPane.classList.add("active");
     };
@@ -4066,6 +4067,19 @@ async function enterAdminView(){
   renderAccountList();
   setupImportUI();
   setupAdminSidebar();
+
+  // Restore active tab from localStorage
+  const savedTab = localStorage.getItem("codif_active_tab");
+  if(savedTab) {
+    const tabItem = document.querySelector(`.sidebar-item[data-tab="${savedTab}"]`);
+    const tabPane = document.getElementById(savedTab);
+    if(tabItem && tabPane) {
+      document.querySelectorAll(".sidebar-item").forEach(i => i.classList.remove("active"));
+      document.querySelectorAll(".admin-tab-pane").forEach(p => p.classList.remove("active"));
+      tabItem.classList.add("active");
+      tabPane.classList.add("active");
+    }
+  }
 
   // Chargement en PARALLÈLE de toutes les ressources (promise.all = 80% plus rapide)
   showLoading("Chargement de l'administration...");
@@ -4132,13 +4146,18 @@ async function init(){
         headers: { 'Authorization': `Bearer ${token}` }
       }).then(res => {
         if (!res.ok) {
-          currentAgent = null;
-          currentRole = null;
-          localStorage.removeItem("codif_token");
-          api.clearCurrentAgent();
-          api.clearCurrentRole();
+          // For local sessions (token starts with "local-session"), don't clear credentials
+          if (!token.startsWith("local-session")) {
+            currentAgent = null;
+            currentRole = null;
+            localStorage.removeItem("codif_token");
+            api.clearCurrentAgent();
+            api.clearCurrentRole();
+          }
         }
-      }).catch(() => {})
+      }).catch(() => {
+        // On API failure, keep local session active
+      })
     );
   }
   await Promise.all(tasks);
