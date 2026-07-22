@@ -915,8 +915,8 @@
                     </select>
                   </div>
                   <div style="flex:1.5;min-width:160px;">
-                    <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:3px;">3. N° CHRONO (4 à 7 chiffres)</span>
-                    <input type="text" id="ref-seg-chrono" inputmode="numeric" pattern="[0-9]*" maxlength="7" placeholder="Ex: 123456" style="width:100%;padding:8px 10px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);font-weight:600;">
+                    <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:3px;">3. N° CHRONO (1 chiffre minimum)</span>
+                    <input type="text" id="ref-seg-chrono" inputmode="numeric" pattern="[0-9]*" placeholder="Ex: 1" style="width:100%;padding:8px 10px;font-size:12.5px;border-radius:6px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);font-weight:600;">
                   </div>
                 </div>
 
@@ -2197,12 +2197,8 @@ function validateSinistreRef(refStr) {
   }
 
   const chrono = cleaned.slice(7);
-  if (chrono.length < 4) {
-    return { valid: false, reason: `N° chronologique trop court (${chrono.length}/4 chiffres minimum)` };
-  }
-
-  if (chrono.length > 7) {
-    return { valid: false, reason: `N° chronologique trop long (${chrono.length}/7 chiffres maximum)` };
+  if (chrono.length < 1) {
+    return { valid: false, reason: `N° chronologique manquant (au moins 1 chiffre requis)` };
   }
 
   return {
