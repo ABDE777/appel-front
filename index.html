@@ -1084,11 +1084,48 @@
             <div class="stat-card"><div class="label">Motif dominant</div><div class="value" id="stat-top-motif" style="font-size:15px;">—</div></div>
           </div>
 
-          <div class="card">
-            <div class="section-title" style="font-size:15px;">Volume horaire</div>
-            <div class="section-hint" id="hourly-period-hint">Répartition des codifications par heure — période sélectionnée.</div>
-            <div id="hourly-chart" class="hourly-chart"></div>
-            <div id="hourly-peak" class="hourly-peak"></div>
+          <!-- Professional Analytics Charts Grid -->
+          <div class="charts-dashboard-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(440px, 1fr));gap:20px;margin-bottom:20px;">
+            
+            <!-- Chart 1: Hourly Activity Line Area -->
+            <div class="card chart-card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div class="section-title" style="font-size:15px;margin:0;">📈 Volume horaire des appels</div>
+                <span id="hourly-peak-badge" style="font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:12px;background:rgba(217,119,6,0.12);color:#D97706;border:1px solid rgba(217,119,6,0.3);">Pic : —</span>
+              </div>
+              <div class="section-hint" id="hourly-period-hint" style="margin-bottom:14px;">Distribution heure par heure (00h – 23h) sur la période sélectionnée.</div>
+              <div style="position:relative;height:240px;width:100%;">
+                <canvas id="chart-hourly-canvas"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 2: Motifs Distribution Donut -->
+            <div class="card chart-card">
+              <div class="section-title" style="font-size:15px;margin-bottom:10px;">📊 Répartition par motif d'appel</div>
+              <div class="section-hint" style="margin-bottom:14px;">Proportion des motifs enregistrés sur la période.</div>
+              <div style="position:relative;height:240px;width:100%;">
+                <canvas id="chart-motifs-canvas"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 3: Caller Type Pie -->
+            <div class="card chart-card">
+              <div class="section-title" style="font-size:15px;margin-bottom:10px;">👥 Type d'appelants (Client vs Agent)</div>
+              <div class="section-hint" style="margin-bottom:14px;">Répartition entre Clients et Agents / Experts.</div>
+              <div style="position:relative;height:220px;width:100%;">
+                <canvas id="chart-caller-canvas"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 4: Daily Activity Trend Bar -->
+            <div class="card chart-card">
+              <div class="section-title" style="font-size:15px;margin-bottom:10px;">📅 Évolution quotidienne de l'activité</div>
+              <div class="section-hint" style="margin-bottom:14px;">Historique des codifications par jour.</div>
+              <div style="position:relative;height:220px;width:100%;">
+                <canvas id="chart-trend-canvas"></canvas>
+              </div>
+            </div>
+
           </div>
 
           <div class="card">
@@ -1210,6 +1247,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 /* =========================================================================
    CONFIGURATION & INITIALISATION
@@ -2612,32 +2650,184 @@ function animateValue(el, to){
   }
   requestAnimationFrame(step);
 }
-function renderHourlyChart(){
+let chartHourlyInst = null;
+let chartMotifsInst = null;
+let chartCallerInst = null;
+let chartTrendInst = null;
+
+function renderProfessionalCharts() {
+  if (typeof Chart === 'undefined') return;
+
   const list = periodEntries();
-  const hint = document.getElementById("hourly-period-hint");
-  if(hint) hint.textContent = `Répartition des codifications par heure — ${periodLabel()}.`;
+
+  // 1. Hourly Activity Chart (Line Area)
   const hourCounts = new Array(24).fill(0);
   list.forEach(e => {
     const h = parseInt((e.time || "").split(":")[0], 10);
-    if(!isNaN(h) && h >= 0 && h < 24) hourCounts[h]++;
+    if (!isNaN(h) && h >= 0 && h < 24) hourCounts[h]++;
   });
-  const el = document.getElementById("hourly-chart");
-  const peakEl = document.getElementById("hourly-peak");
-  if(!el) return;
-  if(list.length === 0){
-    el.innerHTML = '<p class="empty-state" style="width:100%;">Aucune donnée pour cette période.</p>';
-    if(peakEl) peakEl.textContent = "";
-    return;
-  }
-  const max = Math.max(1, ...hourCounts);
-  el.innerHTML = hourCounts.map((c,h) => `
-    <div class="hourly-col" title="${h}h — ${c} appel(s)">
-      <div class="hourly-bar" style="height:${Math.max(2, Math.round(c/max*100))}%"></div>
-      <div class="hourly-label">${h % 3 === 0 ? h + "h" : ""}</div>
-    </div>`).join("");
+
+  const peakBadge = document.getElementById("hourly-peak-badge");
   let peakHour = 0, peakCount = 0;
-  hourCounts.forEach((c,h) => { if(c > peakCount){ peakCount = c; peakHour = h; } });
-  if(peakEl) peakEl.textContent = peakCount > 0 ? `Pic d'activité : ${peakHour}h–${peakHour+1}h (${peakCount} appel(s)).` : "";
+  hourCounts.forEach((c, h) => { if (c > peakCount) { peakCount = c; peakHour = h; } });
+  if (peakBadge) {
+    peakBadge.textContent = peakCount > 0 ? `Pic : ${peakHour}h–${peakHour + 1}h (${peakCount} appels)` : "Pic : —";
+  }
+
+  const canvasHourly = document.getElementById("chart-hourly-canvas");
+  if (canvasHourly) {
+    if (chartHourlyInst) chartHourlyInst.destroy();
+    const ctx = canvasHourly.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+    gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+    chartHourlyInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: 24 }, (_, i) => `${i}h`),
+        datasets: [{
+          label: 'Appels codifiés',
+          data: hourCounts,
+          borderColor: '#D97706',
+          borderWidth: 2.5,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: '#F59E0B',
+          pointRadius: 3,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: '#0F172A',
+            titleFont: { family: 'Plus Jakarta Sans', size: 12, weight: 'bold' },
+            bodyFont: { family: 'Plus Jakarta Sans', size: 12 },
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { precision: 0, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  // 2. Motifs Distribution Chart (Donut)
+  const motifCounts = {};
+  list.forEach(e => {
+    motifCounts[e.motifId] = (motifCounts[e.motifId] || 0) + 1;
+  });
+  const motifSorted = Object.entries(motifCounts).sort((a, b) => b[1] - a[1]);
+  const motifLabels = motifSorted.map(([id]) => {
+    const m = motifById(id);
+    return m ? m.label : id;
+  });
+  const motifData = motifSorted.map(([, count]) => count);
+
+  const canvasMotifs = document.getElementById("chart-motifs-canvas");
+  if (canvasMotifs) {
+    if (chartMotifsInst) chartMotifsInst.destroy();
+    chartMotifsInst = new Chart(canvasMotifs.getContext("2d"), {
+      type: 'doughnut',
+      data: {
+        labels: motifLabels.length ? motifLabels : ['Aucune donnée'],
+        datasets: [{
+          data: motifData.length ? motifData : [1],
+          backgroundColor: motifData.length ? [
+            '#3B82F6', '#F59E0B', '#EF4444', '#10B981', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316'
+          ] : ['#E2E8F0'],
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } }
+        },
+        cutout: '65%'
+      }
+    });
+  }
+
+  // 3. Caller Type Breakdown Chart (Pie)
+  const clientCount = list.filter(e => e.callerType === 'client').length;
+  const agentCount = list.filter(e => e.callerType === 'agent').length;
+  const unknownCount = list.filter(e => !e.callerType).length;
+
+  const canvasCaller = document.getElementById("chart-caller-canvas");
+  if (canvasCaller) {
+    if (chartCallerInst) chartCallerInst.destroy();
+    chartCallerInst = new Chart(canvasCaller.getContext("2d"), {
+      type: 'pie',
+      data: {
+        labels: ['Client', 'Agent / Expert', 'Non spécifié'],
+        datasets: [{
+          data: [clientCount, agentCount, unknownCount],
+          backgroundColor: ['#3B82F6', '#D97706', '#94A3B8'],
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } }
+        }
+      }
+    });
+  }
+
+  // 4. Daily Activity Trend Bar Chart
+  const dailyCounts = {};
+  list.forEach(e => {
+    dailyCounts[e.date] = (dailyCounts[e.date] || 0) + 1;
+  });
+  const daysSorted = Object.keys(dailyCounts).sort();
+  const trendLabels = daysSorted.map(d => {
+    const parts = d.split("-");
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+  });
+  const trendData = daysSorted.map(d => dailyCounts[d]);
+
+  const canvasTrend = document.getElementById("chart-trend-canvas");
+  if (canvasTrend) {
+    if (chartTrendInst) chartTrendInst.destroy();
+    chartTrendInst = new Chart(canvasTrend.getContext("2d"), {
+      type: 'bar',
+      data: {
+        labels: trendLabels.length ? trendLabels : ['Aujourd\'hui'],
+        datasets: [{
+          label: 'Appels',
+          data: trendData.length ? trendData : [0],
+          backgroundColor: '#3B82F6',
+          borderRadius: 5,
+          hoverBackgroundColor: '#2563EB'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { precision: 0, font: { size: 11 } } }
+        }
+      }
+    });
+  }
 }
 function renderLeaderboard(){
   const list = periodEntries();
@@ -2808,7 +2998,7 @@ function renderAdmin(){
   renderLeaderboard();
   renderReport();
   renderRiskList();
-  renderHourlyChart();
+  renderProfessionalCharts();
 
   animateValue(document.getElementById("stat-total"), list.length);
   animateValue(document.getElementById("stat-today"), todayCount);
