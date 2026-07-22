@@ -191,7 +191,7 @@
   .header-right { display: flex; align-items: center; gap: 18px; }
   .who { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
   .who b { color: var(--paper); font-weight: 700; }
-  .who a { color: var(--gold-text); cursor: pointer; text-decoration: none; margin-left: 12px; font-size: 12px; font-weight: 600; }
+  .who a { color: var(--gold-text); cursor: pointer; text-decoration: none; margin: 0 12px 0 0; font-size: 12px; font-weight: 600; }
   .who a:hover { text-decoration: underline; color: var(--gold); }
 
   main { max-width: 1600px; margin: 0 auto; padding: 24px 40px 80px; }
@@ -292,7 +292,7 @@
   .kbd-badge {
     font-family: var(--mono); font-size: 11px; font-weight: 700;
     padding: 3px 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.25);
-    margin-left: 8px; border: 1px solid rgba(255, 255, 255, 0.3);
+    margin: 0 8px 0 0; border: 1px solid rgba(255, 255, 255, 0.3);
   }
 
   .mystats-grid {
@@ -460,7 +460,7 @@
   }
   @keyframes rowIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
   .recent-row:last-child { border-bottom: none; }
-  .recent-row .ticket { font-family: var(--mono); color: var(--text-muted); font-size: 12px; margin-right: 10px; font-weight: 600; }
+  .recent-row .ticket { font-family: var(--mono); color: var(--text-muted); font-size: 12px; margin: 0 0 0 10px; font-weight: 600; }
   .recent-row .ref { font-weight: 700; color: var(--paper); font-family: var(--mono); }
   .recent-row .time { color: var(--text-muted); font-size: 12px; font-family: var(--mono); font-weight: 500; }
 
@@ -575,14 +575,14 @@
   .account-form select { flex: 1; min-width: 120px; }
   .account-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; animation: rowIn 0.3s var(--ease); }
   .account-row:last-child { border-bottom: none; }
-  .account-row .role-badge { font-size: 10.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; font-weight: 800; margin-left: 10px; font-family: var(--sans); }
+  .account-row .role-badge { font-size: 10.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; font-weight: 800; margin: 0 10px 0 0; font-family: var(--sans); }
   .account-row .role-badge.agent { background: var(--blue-bg); color: var(--blue); }
   .account-row .role-badge.admin { background: var(--amber-bg); color: var(--gold-text); }
   .account-row .remove { color: var(--red); cursor: pointer; font-size: 12.5px; font-weight: 700; background: none; border: none; font-family: var(--sans); }
   .account-row .remove:hover { text-decoration: underline; }
   .section-title { font-size: 18px; font-weight: 800; color: var(--paper); margin: 0 0 4px; letter-spacing: -0.01em; }
   .section-hint { font-size: 12.5px; color: var(--text-muted); margin: 0 0 20px; }
-  .account-row .pass-hint { color: var(--text-muted); font-size: 11.5px; font-family: var(--mono); margin-left: 10px; }
+  .account-row .pass-hint { color: var(--text-muted); font-size: 11.5px; font-family: var(--mono); margin: 0 10px 0 0; }
 
   /* ---------- success state ---------- */
   #codif-success { text-align: center; padding: 30px 10px 16px; }
@@ -676,7 +676,7 @@
   .account-row .name-btn:hover { color: var(--gold-text); }
 
   /* ---------- ref note ---------- */
-  .note-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; margin-left: 6px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; }
+  .note-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; margin: 0 6px 0 0; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; }
   .note-btn:hover { color: var(--gold-text); background: var(--amber-bg); }
   .note-btn.has-note { color: var(--gold-text); font-weight: 700; }
   .note-inline { display: none; margin-top: 8px; }
@@ -3239,7 +3239,7 @@ function renderAccountList(){
         <div class="account-row" style="display:flex;justify-content:space-between;align-items:center;">
           <span>
             <span class="name-btn" style="cursor:pointer;font-weight:600;">${safeName}</span>
-            <span class="role-badge ${a.role}" style="margin-left:6px;">${a.role === 'admin' ? 'Admin' : 'Chargé'}</span>
+            <span class="role-badge ${a.role}" style="margin:0 6px 0 0;">${a.role === 'admin' ? 'Admin' : 'Chargé'}</span>
           </span>
           <div style="display:flex;gap:6px;">
             <button class="btn-outline edit-btn" style="padding:3px 10px;font-size:11px;">Modifier</button>
