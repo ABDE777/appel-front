@@ -634,6 +634,53 @@
   }
   .filters select:focus, .filters input:focus { outline: none; border-color: var(--gold); background: #FFFFFF; box-shadow: 0 0 0 3.5px var(--gold-glow); }
   .filters input[type="text"] { flex: 1; min-width: 180px; }
+  
+  /* Mobile Responsiveness */
+  @media (max-width: 768px) {
+    header { padding: 12px 20px; flex-direction: column; align-items: flex-start; gap: 12px; }
+    .header-right { width: 100%; justify-content: space-between; }
+    main { padding: 16px 20px 60px; }
+    .brand h1 { font-size: 16px; }
+    .brand .sub { font-size: 10px; }
+    
+    .filters { flex-direction: column; align-items: stretch; gap: 8px; }
+    .filters select, .filters input { width: 100%; }
+    .filters button { width: 100%; }
+    
+    .table-wrap { overflow-x: auto; }
+    table { min-width: 800px; }
+    
+    .charts-dashboard-grid { grid-template-columns: 1fr; }
+    
+    .stat-grid { grid-template-columns: 1fr; }
+    
+    .admin-toolbar-top { flex-direction: column; align-items: stretch; gap: 12px; }
+    .toolbar-group { width: 100%; }
+    .toolbar-group select, .toolbar-group input { width: 100%; }
+    
+    .codif-grid { grid-template-columns: 1fr; }
+    
+    .welcome-banner { flex-direction: column; text-align: center; }
+    .welcome-banner .wb-decor { right: 50%; transform: translateX(50%); }
+    
+    .account-form { flex-direction: column; }
+    .account-form input, .account-form select, .account-form button { width: 100%; }
+  }
+  
+  @media (max-width: 480px) {
+    header { padding: 10px 16px; }
+    main { padding: 12px 16px 50px; }
+    
+    .btn-gold { padding: 12px; font-size: 13px; }
+    
+    .section-title { font-size: 14px; }
+    .section-hint { font-size: 12px; }
+    
+    .stat-card { padding: 16px 18px; }
+    .stat-card .value { font-size: 24px; }
+    
+    .sidebar-item { padding: 10px 12px; font-size: 12.5px; }
+  }
   .btn-outline {
     border: 1px solid var(--line-strong); background: var(--panel); border-radius: var(--radius); padding: 10px 18px;
     font-size: 13px; font-weight: 700; cursor: pointer; font-family: var(--sans); color: var(--text);
@@ -1416,6 +1463,8 @@
                 <option value="client">Client</option>
                 <option value="agent">Agent</option>
               </select>
+              <input id="filter-date-start" type="date" placeholder="Date début">
+              <input id="filter-date-end" type="date" placeholder="Date fin">
               <input id="filter-search" type="text" placeholder="Rechercher une référence...">
               <button class="btn-outline" id="export-btn">Exporter Excel</button>
               <button class="btn-outline" id="export-pdf-btn">Exporter PDF</button>
@@ -1569,6 +1618,18 @@
     </div>
   </div>
 
+  <!-- Modale de confirmation -->
+  <div id="confirm-modal" class="hidden" style="position:fixed;inset:0;z-index:100;background:rgba(16,24,40,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:36px 32px;max-width:400px;width:90%;box-shadow:var(--shadow-lg);">
+      <h3 style="font-family:var(--serif);font-size:20px;font-weight:normal;margin:0 0 8px;color:var(--paper);">Confirmation</h3>
+      <p id="confirm-message" style="font-size:13px;color:var(--text-secondary);margin:0 0 22px;">Êtes-vous sûr de vouloir effectuer cette action ?</p>
+      <div style="display:flex;gap:10px;">
+        <button id="confirm-cancel-btn" class="btn-outline" style="flex:1;">Annuler</button>
+        <button id="confirm-ok-btn" class="btn-gold" style="flex:1; background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1625,11 +1686,13 @@ async function authFetch(url, options = {}) {
       // (évite le logout au chargement de la page si le token est expiré)
       if (currentAgent && localStorage.getItem("codif_token")) {
         logout();
-        alert("Votre session a expiré. Veuillez vous reconnecter.");
+        showToast("Votre session a expiré. Veuillez vous reconnecter.", "warning");
       }
     }
     return res;
   } catch (e) {
+    console.error('Network error:', e);
+    showToast("Erreur de connexion. Vérifiez votre connexion internet.", "error");
     throw e;
   }
 }
@@ -2978,6 +3041,8 @@ function filteredEntries(){
   const agent = document.getElementById("filter-agent").value;
   const caller = document.getElementById("filter-caller").value;
   const search = document.getElementById("filter-search").value.trim().toLowerCase();
+  const dateStart = document.getElementById("filter-date-start").value;
+  const dateEnd = document.getElementById("filter-date-end").value;
   const now = new Date();
   let cutoff = null;
   if(period === "today") cutoff = todayStr(now);
@@ -2990,13 +3055,17 @@ function filteredEntries(){
     if(agent && e.agent !== agent) return false;
     if(caller && e.callerType !== caller) return false;
     if(search && !e.ref.toLowerCase().includes(search)) return false;
+    if(dateStart && e.date < dateStart) return false;
+    if(dateEnd && e.date > dateEnd) return false;
     return true;
   });
 }
 function computeHotRefsToday(){
   const t = todayStr();
   const counts = {};
-  allEntries.filter(e => e.date === t && e.ref).forEach(e => {
+  // Use filtered entries based on selected period instead of just today
+  const list = filteredEntries();
+  list.filter(e => e.ref).forEach(e => {
     const key = e.ref.toLowerCase();
     counts[key] = counts[key] || {ref: e.ref, count: 0};
     counts[key].count++;
@@ -3316,7 +3385,9 @@ function renderRiskList(){
   const now = new Date();
   const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 30);
   const counts = {};
-  allEntries.filter(e => e.ts >= cutoff.toISOString() && e.ref).forEach(e => {
+  // Use filtered entries instead of allEntries
+  const list = filteredEntries();
+  list.filter(e => e.ts >= cutoff.toISOString() && e.ref).forEach(e => {
     const key = e.ref.toLowerCase();
     counts[key] = counts[key] || {ref: e.ref, count: 0};
     counts[key].count++;
@@ -3474,7 +3545,7 @@ function renderAdmin(){
     tbody.innerHTML = pageList.map(e => {
       const m = motifById(e.motifId);
       const isHot = e.ref && hotKeys.has(e.ref.toLowerCase()) && e.date === t;
-      const noteKey = (e.ref || ("entry_" + e.id)).toLowerCase();
+      const noteKey = "entry_" + e.id;
       const noteVal = (notesStore.refs && notesStore.refs[noteKey]) || "";
       return `<tr>
         <td class="ticket-no">${ticketNo(e.id)}</td>
@@ -3542,7 +3613,7 @@ function renderAdmin(){
 function exportRows(){
   return filteredEntries().slice().sort((a,b) => b.ts.localeCompare(a.ts)).map(e => {
     const m = motifById(e.motifId);
-    const noteKey = (e.ref || ("entry_" + e.id)).toLowerCase();
+    const noteKey = "entry_" + e.id;
     const noteVal = (notesStore.refs && notesStore.refs[noteKey]) || "";
     return {
       ticket: ticketNo(e.id),
@@ -3574,19 +3645,25 @@ function exportFilterSummary(){
 }
 
 async function exportExcel(){
-  const rows = exportRows();
-  const logoData = await imageToDataUrl("./WAFA-IMA.png");
-  const generatedAt = new Date().toLocaleString('fr-FR');
-  const summary = exportFilterSummary();
-  const hotRefs = computeHotRefsToday();
-  const motifCounts = {};
-  rows.forEach(r => { motifCounts[r.motif] = (motifCounts[r.motif] || 0) + 1; });
-  const topMotifs = Object.entries(motifCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
-  const safe = v => escapeHtml(String(v || "-"));
-  const summaryRows = summary.map(([label, value]) => `<tr><th>${safe(label)}</th><td>${safe(value)}</td></tr>`).join("");
-  const topMotifRows = topMotifs.length ? topMotifs.map(([label, count]) => `<tr><td>${safe(label)}</td><td>${count}</td></tr>`).join("") : '<tr><td colspan="2">Aucune donnée</td></tr>';
-  const alertRows = hotRefs.length ? hotRefs.map(h => `<tr><td>${safe(h.ref)}</td><td>${h.count} codifications</td></tr>`).join("") : '<tr><td colspan="2">Aucune référence en alerte aujourd\'hui</td></tr>';
-  const tableRows = rows.length ? rows.map(r => `
+  const btn = document.getElementById("export-btn");
+  btn.disabled = true;
+  btn.textContent = "Exportation...";
+  showToast("Génération du fichier Excel en cours...", "info");
+  
+  try {
+    const rows = exportRows();
+    const logoData = await imageToDataUrl("./WAFA-IMA.png");
+    const generatedAt = new Date().toLocaleString('fr-FR');
+    const summary = exportFilterSummary();
+    const hotRefs = computeHotRefsToday();
+    const motifCounts = {};
+    rows.forEach(r => { motifCounts[r.motif] = (motifCounts[r.motif] || 0) + 1; });
+    const topMotifs = Object.entries(motifCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    const safe = v => escapeHtml(String(v || "-"));
+    const summaryRows = summary.map(([label, value]) => `<tr><th>${safe(label)}</th><td>${safe(value)}</td></tr>`).join("");
+    const topMotifRows = topMotifs.length ? topMotifs.map(([label, count]) => `<tr><td>${safe(label)}</td><td>${count}</td></tr>`).join("") : '<tr><td colspan="2">Aucune donnée</td></tr>';
+    const alertRows = hotRefs.length ? hotRefs.map(h => `<tr><td>${safe(h.ref)}</td><td>${h.count} codifications</td></tr>`).join("") : '<tr><td colspan="2">Aucune référence en alerte aujourd\'hui</td></tr>';
+    const tableRows = rows.length ? rows.map(r => `
     <tr>
       <td>${safe(r.ticket)}</td>
       <td class="mono">${safe(r.ref)}</td>
@@ -3664,6 +3741,15 @@ async function exportExcel(){
   a.download = `compte-rendu-appels-${todayStr()}.xls`;
   a.click();
   URL.revokeObjectURL(url);
+  
+  btn.disabled = false;
+  btn.textContent = "Exporter Excel";
+  showToast("Export Excel réussi !", "success");
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Exporter Excel";
+    showToast("Erreur lors de l'export Excel", "error");
+  }
 }
 
 function imageToDataUrl(src){
@@ -3684,14 +3770,21 @@ function imageToDataUrl(src){
 
 async function exportPdf(){
   if(!window.jspdf){ alert("Bibliothèque PDF indisponible (connexion internet requise pour ce bouton)."); return; }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const rows = exportRows();
-  const logoData = await imageToDataUrl("./WAFA-IMA.png");
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 12;
-  const generatedAt = new Date().toLocaleString('fr-FR');
+  
+  const btn = document.getElementById("export-pdf-btn");
+  btn.disabled = true;
+  btn.textContent = "Exportation...";
+  showToast("Génération du PDF en cours...", "info");
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const rows = exportRows();
+    const logoData = await imageToDataUrl("./WAFA-IMA.png");
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 12;
+    const generatedAt = new Date().toLocaleString('fr-FR');
 
   function drawHeader(pageNo){
     doc.setFillColor(248, 250, 252);
@@ -3799,6 +3892,15 @@ async function exportPdf(){
   }
   drawFooter();
   doc.save(`compte-rendu-appels-${todayStr()}.pdf`);
+  
+  btn.disabled = false;
+  btn.textContent = "Exporter PDF";
+  showToast("Export PDF réussi !", "success");
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = "Exporter PDF";
+    showToast("Erreur lors de l'export PDF", "error");
+  }
 }
 let accountCurrentPage = 1;
 const accountItemsPerPage = 10;
@@ -4001,29 +4103,33 @@ function renderAccountList(){
       const item = btn.closest(".account-item");
       const name = item.dataset.name;
       const role = item.dataset.role;
+      const roleLabel = role === 'admin' ? 'administrateur' : 'chargé';
 
-      openPinModal(async (pin) => {
-        btn.disabled = true;
-        btn.textContent = '...';
-        let ok = false;
-        if (role === 'admin') {
-          ok = await api.deleteAdmin(name, pin);
-          if (ok) adminUsers = adminUsers.filter(a => a.name !== name);
-        } else {
-          ok = await api.deleteAgent(name, pin);
-          if (ok) agents = agents.filter(a => a.name !== name);
-        }
-        if (ok) {
-          renderAccountList();
-          populateFilterOptions();
-          loadLoginUsersDropdown();
-        } else {
-          alert(`Échec de la suppression de ${name}.`);
-          btn.disabled = false;
-          btn.textContent = 'Retirer';
-          return false;
-        }
-        return true;
+      showConfirmModal(`Êtes-vous sûr de vouloir supprimer le compte "${name}" (${roleLabel}) ?`, () => {
+        openPinModal(async (pin) => {
+          btn.disabled = true;
+          btn.textContent = '...';
+          let ok = false;
+          if (role === 'admin') {
+            ok = await api.deleteAdmin(name, pin);
+            if (ok) adminUsers = adminUsers.filter(a => a.name !== name);
+          } else {
+            ok = await api.deleteAgent(name, pin);
+            if (ok) agents = agents.filter(a => a.name !== name);
+          }
+          if (ok) {
+            renderAccountList();
+            populateFilterOptions();
+            loadLoginUsersDropdown();
+            showToast(`${roleLabel} supprimé avec succès`, "success");
+          } else {
+            alert(`Échec de la suppression de ${name}.`);
+            btn.disabled = false;
+            btn.textContent = 'Retirer';
+            return false;
+          }
+          return true;
+        });
       });
     });
   });
@@ -4220,6 +4326,28 @@ async function submitPin() {
 document.getElementById("pin-cancel-btn").addEventListener("click", closePinModal);
 document.getElementById("pin-submit-btn").addEventListener("click", submitPin);
 
+/* ---------- Confirmation Modal Functions ---------- */
+let pendingConfirmAction = null;
+
+function showConfirmModal(message, action) {
+  pendingConfirmAction = action;
+  document.getElementById("confirm-message").textContent = message;
+  document.getElementById("confirm-modal").classList.remove("hidden");
+}
+
+function closeConfirmModal() {
+  document.getElementById("confirm-modal").classList.add("hidden");
+  pendingConfirmAction = null;
+}
+
+document.getElementById("confirm-cancel-btn").addEventListener("click", closeConfirmModal);
+document.getElementById("confirm-ok-btn").addEventListener("click", () => {
+  if (pendingConfirmAction) {
+    pendingConfirmAction();
+  }
+  closeConfirmModal();
+});
+
 /* ---------- init ---------- */
 async function init(){
   updateDbStatusUI();
@@ -4274,7 +4402,7 @@ async function init(){
   });
   document.getElementById("submit-btn").addEventListener("click", submitEntry);
   document.getElementById("new-codif-btn").addEventListener("click", resetCodifForm);
-  ["filter-period","filter-motif","filter-agent","filter-caller"].forEach(id => document.getElementById(id).addEventListener("change", renderAdmin));
+  ["filter-period","filter-motif","filter-agent","filter-caller","filter-date-start","filter-date-end"].forEach(id => document.getElementById(id).addEventListener("change", renderAdmin));
   document.getElementById("filter-search").addEventListener("input", debounce(renderAdmin, 150));
   document.getElementById("export-btn").addEventListener("click", exportExcel);
   document.getElementById("export-pdf-btn").addEventListener("click", exportPdf);
