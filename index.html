@@ -1553,6 +1553,22 @@
     </div>
   </div>
 
+  <!-- Modale PIN administrateur -->
+  <div id="pin-modal" class="hidden" style="position:fixed;inset:0;z-index:100;background:rgba(16,24,40,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:36px 32px;max-width:400px;width:90%;box-shadow:var(--shadow-lg);">
+      <h3 style="font-family:var(--serif);font-size:20px;font-weight:normal;margin:0 0 8px;color:var(--paper);">Validation administrateur</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 22px;">Entrez votre code PIN pour confirmer cette action.</p>
+      <form onsubmit="submitPin(); return false;">
+        <input id="pin-input" type="password" placeholder="Code PIN" autocomplete="one-time-code" class="pin-input" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:4px;">
+      </form>
+      <div id="pin-error" style="font-size:12.5px;color:var(--red);min-height:16px;margin-bottom:16px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="pin-cancel-btn" class="btn-outline" style="flex:1;">Annuler</button>
+        <button id="pin-submit-btn" class="btn-gold" style="flex:1;">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1570,11 +1586,13 @@ const LOCAL_BACKEND_URL = "http://localhost:3000";
 let apiOnline = false;
 
 function getApiUrl(path) {
-  if (BACKEND_URL) {
-    return BACKEND_URL.replace(/\/$/, '') + path;
-  }
+  // Use local backend when running on localhost
   if (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)) {
     return LOCAL_BACKEND_URL + path;
+  }
+  // Otherwise use the configured backend URL
+  if (BACKEND_URL) {
+    return BACKEND_URL.replace(/\/$/, '') + path;
   }
   return path;
 }
@@ -1593,6 +1611,16 @@ async function authFetch(url, options = {}) {
   try {
     const res = await fetch(getApiUrl(url), options);
     if (res.status === 401 || res.status === 403) {
+      // Check if it's a PIN validation error (not a session expiration)
+      try {
+        const errorData = await res.clone().json();
+        if (errorData.error && errorData.error.includes('PIN administrateur incorrect')) {
+          return res; // Return the response without logging out
+        }
+      } catch (e) {
+        // If we can't parse the error, proceed with logout logic
+      }
+      
       // N'effectuer un logout automatique que si l'utilisateur est déjà confirmé connecté
       // (évite le logout au chargement de la page si le token est expiré)
       if (currentAgent && localStorage.getItem("codif_token")) {
@@ -1728,26 +1756,29 @@ const api = {
     try { return JSON.parse(localStorage.getItem("codif_agents") || "[]"); } catch (e) { return []; }
   },
 
-  async addAgent(name, password) {
+  async addAgent(name, password, pin) {
     try {
       const res = await authFetch('/api/agents', {
         method: 'POST',
-        body: JSON.stringify({ name, password })
+        body: JSON.stringify({ name, password, pin })
       });
       return res.ok;
     } catch (e) { return false; }
   },
 
-  async deleteAgent(name) {
+  async deleteAgent(name, pin) {
     try {
-      const res = await authFetch('/api/agents/' + encodeURIComponent(name), { method: 'DELETE' });
+      const res = await authFetch('/api/agents/' + encodeURIComponent(name), {
+        method: 'DELETE',
+        body: JSON.stringify({ pin })
+      });
       return res.ok;
     } catch (e) { return false; }
   },
 
-  async updateAgent(name, newName, password) {
+  async updateAgent(name, newName, password, pin) {
     try {
-      const body = {};
+      const body = { pin };
       if (newName && newName !== name) body.name = newName;
       if (password) body.password = password;
       const res = await authFetch('/api/agents/' + encodeURIComponent(name), {
@@ -1766,26 +1797,29 @@ const api = {
     try { return JSON.parse(localStorage.getItem("codif_admins") || "[]"); } catch (e) { return []; }
   },
 
-  async addAdmin(name, password) {
+  async addAdmin(name, password, pin) {
     try {
       const res = await authFetch('/api/admins', {
         method: 'POST',
-        body: JSON.stringify({ name, password })
+        body: JSON.stringify({ name, password, pin })
       });
       return res.ok;
     } catch (e) { return false; }
   },
 
-  async deleteAdmin(name) {
+  async deleteAdmin(name, pin) {
     try {
-      const res = await authFetch('/api/admins/' + encodeURIComponent(name), { method: 'DELETE' });
+      const res = await authFetch('/api/admins/' + encodeURIComponent(name), {
+        method: 'DELETE',
+        body: JSON.stringify({ pin })
+      });
       return res.ok;
     } catch (e) { return false; }
   },
 
-  async updateAdmin(name, newName, password) {
+  async updateAdmin(name, newName, password, pin) {
     try {
-      const body = {};
+      const body = { pin };
       if (newName && newName !== name) body.name = newName;
       if (password) body.password = password;
       const res = await authFetch('/api/admins/' + encodeURIComponent(name), {
@@ -3925,35 +3959,40 @@ function renderAccountList(){
         alert("Aucune modification saisie.");
         return;
       }
-      btn.disabled = true;
-      btn.textContent = 'Enregistrement...';
 
-      let ok = false;
-      if (role === 'admin') {
-        ok = await api.updateAdmin(oldName, newName !== oldName ? newName : null, newPassword);
-      } else {
-        ok = await api.updateAgent(oldName, newName !== oldName ? newName : null, newPassword);
-      }
+      openPinModal(async (pin) => {
+        btn.disabled = true;
+        btn.textContent = 'Enregistrement...';
 
-      if (ok) {
-        if (oldName === currentAgent) {
-          currentAgent = newName;
-          await api.setCurrentAgent(newName);
+        let ok = false;
+        if (role === 'admin') {
+          ok = await api.updateAdmin(oldName, newName !== oldName ? newName : null, newPassword, pin);
+        } else {
+          ok = await api.updateAgent(oldName, newName !== oldName ? newName : null, newPassword, pin);
         }
 
-        allEntries = await api.getEntries();
-        agents = await api.getAgents();
-        adminUsers = await api.getAdmins();
+        if (ok) {
+          if (oldName === currentAgent) {
+            currentAgent = newName;
+            await api.setCurrentAgent(newName);
+          }
 
-        renderAccountList();
-        populateFilterOptions();
-        loadLoginUsersDropdown();
-        renderAdmin();
-      } else {
-        alert(`Échec de la modification pour ${oldName}.`);
-        btn.disabled = false;
-        btn.textContent = 'Enregistrer';
-      }
+          allEntries = await api.getEntries();
+          agents = await api.getAgents();
+          adminUsers = await api.getAdmins();
+
+          renderAccountList();
+          populateFilterOptions();
+          loadLoginUsersDropdown();
+          renderAdmin();
+        } else {
+          alert(`Échec de la modification pour ${oldName}.`);
+          btn.disabled = false;
+          btn.textContent = 'Enregistrer';
+          return false;
+        }
+        return true;
+      });
     });
   });
   
@@ -3962,18 +4001,30 @@ function renderAccountList(){
       const item = btn.closest(".account-item");
       const name = item.dataset.name;
       const role = item.dataset.role;
-      btn.disabled = true;
-      btn.textContent = '...';
-      if (role === 'admin') {
-        const ok = await api.deleteAdmin(name);
-        if (ok) adminUsers = adminUsers.filter(a => a.name !== name);
-      } else {
-        const ok = await api.deleteAgent(name);
-        if (ok) agents = agents.filter(a => a.name !== name);
-      }
-      renderAccountList();
-      populateFilterOptions();
-      loadLoginUsersDropdown();
+
+      openPinModal(async (pin) => {
+        btn.disabled = true;
+        btn.textContent = '...';
+        let ok = false;
+        if (role === 'admin') {
+          ok = await api.deleteAdmin(name, pin);
+          if (ok) adminUsers = adminUsers.filter(a => a.name !== name);
+        } else {
+          ok = await api.deleteAgent(name, pin);
+          if (ok) agents = agents.filter(a => a.name !== name);
+        }
+        if (ok) {
+          renderAccountList();
+          populateFilterOptions();
+          loadLoginUsersDropdown();
+        } else {
+          alert(`Échec de la suppression de ${name}.`);
+          btn.disabled = false;
+          btn.textContent = 'Retirer';
+          return false;
+        }
+        return true;
+      });
     });
   });
 }
@@ -3992,37 +4043,42 @@ async function addAccount(){
     return;
   }
 
-  addBtn.disabled = true;
-  addBtn.textContent = '...';
+  openPinModal(async (pin) => {
+    addBtn.disabled = true;
+    addBtn.textContent = '...';
 
-  if (role === 'admin') {
-    const ok = await api.addAdmin(name, password);
-    if (ok) {
-      const existingIndex = adminUsers.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
-      if (existingIndex !== -1) adminUsers[existingIndex] = { name, password: '********' };
-      else adminUsers.push({ name, password: '********' });
-      showToast(`Administrateur ${name} ajouté avec succès`, "success");
+    if (role === 'admin') {
+      const ok = await api.addAdmin(name, password, pin);
+      if (ok) {
+        const existingIndex = adminUsers.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
+        if (existingIndex !== -1) adminUsers[existingIndex] = { name, password: '********' };
+        else adminUsers.push({ name, password: '********' });
+        showToast(`Administrateur ${name} ajouté avec succès`, "success");
+      } else {
+        showToast(`Échec de l'ajout de ${name}`, "error");
+        return false;
+      }
     } else {
-      showToast(`Échec de l'ajout de ${name}`, "error");
+      const ok = await api.addAgent(name, password, pin);
+      if (ok) {
+        const existingIndex = agents.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
+        if (existingIndex !== -1) agents[existingIndex] = { name, password: '********' };
+        else agents.push({ name, password: '********' });
+        showToast(`Chargé ${name} ajouté avec succès`, "success");
+      } else {
+        showToast(`Échec de l'ajout de ${name}`, "error");
+        return false;
+      }
     }
-  } else {
-    const ok = await api.addAgent(name, password);
-    if (ok) {
-      const existingIndex = agents.findIndex(a => a.name.toLowerCase() === name.toLowerCase());
-      if (existingIndex !== -1) agents[existingIndex] = { name, password: '********' };
-      else agents.push({ name, password: '********' });
-      showToast(`Chargé ${name} ajouté avec succès`, "success");
-    } else {
-      showToast(`Échec de l'ajout de ${name}`, "error");
-    }
-  }
 
-  addBtn.disabled = false;
-  addBtn.textContent = 'Ajouter';
-  nameInput.value = "";
-  passInput.value = "";
-  renderAccountList();
-  populateFilterOptions();
+    addBtn.disabled = false;
+    addBtn.textContent = 'Ajouter';
+    nameInput.value = "";
+    passInput.value = "";
+    renderAccountList();
+    populateFilterOptions();
+    return true;
+  });
   loadLoginUsersDropdown();
 }
 
@@ -4124,6 +4180,45 @@ function populateYearDropdown() {
 
   select.innerHTML = html;
 }
+
+/* ---------- PIN Modal Functions ---------- */
+let pendingPinAction = null;
+
+function openPinModal(action) {
+  pendingPinAction = action;
+  document.getElementById("pin-modal").classList.remove("hidden");
+  document.getElementById("pin-input").value = "";
+  document.getElementById("pin-error").textContent = "";
+  document.getElementById("pin-input").focus();
+}
+
+function closePinModal() {
+  document.getElementById("pin-modal").classList.add("hidden");
+  pendingPinAction = null;
+}
+
+async function submitPin() {
+  const pin = document.getElementById("pin-input").value.trim();
+  const errorDiv = document.getElementById("pin-error");
+  
+  if (!pin) {
+    errorDiv.textContent = "Veuillez entrer le code PIN.";
+    return;
+  }
+  
+  if (pendingPinAction) {
+    const result = await pendingPinAction(pin);
+    if (result === false) {
+      errorDiv.textContent = "Code PIN incorrect.";
+      return;
+    }
+  }
+  
+  closePinModal();
+}
+
+document.getElementById("pin-cancel-btn").addEventListener("click", closePinModal);
+document.getElementById("pin-submit-btn").addEventListener("click", submitPin);
 
 /* ---------- init ---------- */
 async function init(){
